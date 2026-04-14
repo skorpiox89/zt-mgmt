@@ -6,8 +6,22 @@ interface ApiEnvelope<T> {
   message: string;
 }
 
+const DEFAULT_API_BASE_URL = '/api';
+
+function isLoopbackApiBaseUrl(url: string) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return ['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001/api';
+  import.meta.env.DEV && configuredApiBaseUrl && isLoopbackApiBaseUrl(configuredApiBaseUrl)
+    ? DEFAULT_API_BASE_URL
+    : configuredApiBaseUrl || DEFAULT_API_BASE_URL;
 
 export async function request<T>(path: string, init?: RequestInit) {
   const authStore = useAuthStore();

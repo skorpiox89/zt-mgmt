@@ -11,7 +11,7 @@
       </div>
       <a-card :bordered="false" class="login-card">
         <h2>Platform Login</h2>
-        <a-form layout="vertical" @finish="handleSubmit">
+        <a-form :model="form" layout="vertical" @finish="handleSubmit">
           <a-form-item label="Username" name="username">
             <a-input v-model:value="form.username" placeholder="admin" />
           </a-form-item>

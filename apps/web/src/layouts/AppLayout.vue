@@ -110,7 +110,11 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  gap: 16px;
+  min-height: 88px;
+  height: auto;
+  padding: 16px 24px;
+  line-height: 1.4;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid rgba(148, 163, 184, 0.18);
@@ -120,11 +124,13 @@ async function handleLogout() {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
 .topbar-subtitle {
   color: #64748b;
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .topbar-actions {
@@ -136,5 +142,17 @@ async function handleLogout() {
 .topbar-user {
   color: #334155;
   font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 </style>
