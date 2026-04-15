@@ -1,5 +1,30 @@
 # Progress Log
 
+## 2026-04-15
+
+### Completed
+
+- Added Prisma 7 config via `apps/server/prisma.config.ts`.
+- Added Prisma runtime wiring in NestJS:
+  - `PrismaModule`
+  - `PrismaService`
+- Switched `Controller` persistence from in-memory storage to `Prisma + MySQL`.
+- Updated controller, network, and member service call chains to use async
+  database-backed controller lookup.
+- Installed Prisma runtime dependencies for the server:
+  - `@prisma/client`
+  - `@prisma/adapter-mariadb`
+  - `dotenv`
+- Added the initial MySQL migration files under:
+  - `apps/server/prisma/migrations/20260415000000_init_mysql_persistence/`
+- Created a dedicated local MySQL database and project user for this project:
+  - database: `zt_mgmt`
+  - user: `zt_mgmt`
+- Verified:
+  - `pnpm --filter @zt-mgmt/server prisma:generate`
+  - `pnpm --filter @zt-mgmt/server exec prisma db push`
+  - `pnpm --filter @zt-mgmt/server exec prisma migrate dev`
+
 ## 2026-04-14
 
 ### Completed
@@ -63,26 +88,31 @@ What already works:
 - network create/rename/delete API skeleton
 - member list/auth/name/delete API skeleton
 - frontend pages wired to backend API endpoints
+- controller configuration persistence via Prisma + MySQL
 
 What is still temporary:
 
-- controller data is still stored in memory inside the server service
-- Prisma schema exists, but controller persistence is not yet wired to MySQL
-- no database migration has been run yet
 - no end-to-end local run was completed in this environment because the sandbox
   here does not permit binding local ports
 
 ### Suggested Next Step
 
-Wire `Controller` persistence from in-memory storage to `Prisma + MySQL 8.4`,
-then run:
+Run the local stack against the dedicated MySQL database and verify controller
+CRUD persists across restarts, then validate one full real-controller flow:
 
-1. `make env`
-2. edit `.env`
-3. `make install`
-4. `make prisma-generate`
-5. `make build`
-6. `make dev`
+1. `make build`
+2. `make dev`
+3. add a controller in the UI
+4. restart the server
+5. confirm the controller record still exists
+6. run controller connection test
+7. create one network and verify member operations end to end
+
+If local ports are unavailable in the environment, at minimum run:
+
+1. `make prisma-generate`
+2. `make build`
+3. targeted API smoke tests against the running server
 
 ### Local Start Commands
 

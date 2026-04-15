@@ -1,7 +1,10 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Controller as ControllerRecord } from '@prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { decryptString, encryptString } from '../../common/utils/crypto.util';
 import { ZtncuiService } from '../ztncui/ztncui.service';
 import { CreateControllerDto } from './dto/create-controller.dto';
@@ -9,72 +12,89 @@ import { UpdateControllerDto } from './dto/update-controller.dto';
 import {
   ControllerConfig,
   ControllerDto,
-  ControllerEntity,
 } from './controllers.types';
+
+interface PrismaLikeError {
+  code?: string;
+}
+
+function isPrismaLikeError(error: unknown): error is PrismaLikeError {
+  return typeof error === 'object' && error !== null;
+}
 
 @Injectable()
 export class ControllersService {
-  private readonly controllers: ControllerEntity[] = [];
-  private nextId = 1;
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ztncuiService: ZtncuiService,
+  ) {}
 
-  constructor(private readonly ztncuiService: ZtncuiService) {}
+  async list(): Promise<ControllerDto[]> {
+    const controllers = await this.prisma.controller.findMany({
+      orderBy: {
+        id: 'asc',
+      },
+    });
 
-  list(): ControllerDto[] {
-    return this.controllers.map((controller) => this.toDto(controller));
+    return controllers.map((controller) => this.toDto(controller));
   }
 
-  create(dto: CreateControllerDto): ControllerDto {
-    const entity: ControllerEntity = {
-      baseUrl: dto.baseUrl,
-      id: this.nextId++,
-      lastCheckedAt: null,
-      name: dto.name,
-      passwordEnc: encryptString(dto.password),
-      region: dto.region,
-      status: 'unknown',
-      subnetPoolCidr: dto.subnetPoolCidr,
-      subnetPrefix: dto.subnetPrefix,
-      username: dto.username,
-    };
+  async create(dto: CreateControllerDto): Promise<ControllerDto> {
+    try {
+      const entity = await this.prisma.controller.create({
+        data: {
+          baseUrl: dto.baseUrl,
+          name: dto.name,
+          passwordEnc: encryptString(dto.password),
+          region: dto.region,
+          subnetPoolCidr: dto.subnetPoolCidr,
+          subnetPrefix: dto.subnetPrefix,
+          username: dto.username,
+        },
+      });
 
-    this.controllers.push(entity);
-    return this.toDto(entity);
+      return this.toDto(entity);
+    } catch (error) {
+      this.handlePrismaWriteError(error);
+    }
   }
 
-  update(id: number, dto: UpdateControllerDto): ControllerDto {
-    const entity = this.findEntity(id);
+  async update(id: number, dto: UpdateControllerDto): Promise<ControllerDto> {
+    await this.findEntity(id);
 
-    if (dto.baseUrl !== undefined) {
-      entity.baseUrl = dto.baseUrl;
-    }
-    if (dto.name !== undefined) {
-      entity.name = dto.name;
-    }
-    if (dto.password !== undefined) {
-      entity.passwordEnc = encryptString(dto.password);
-    }
-    if (dto.region !== undefined) {
-      entity.region = dto.region;
-    }
-    if (dto.subnetPoolCidr !== undefined) {
-      entity.subnetPoolCidr = dto.subnetPoolCidr;
-    }
-    if (dto.subnetPrefix !== undefined) {
-      entity.subnetPrefix = dto.subnetPrefix;
-    }
-    if (dto.username !== undefined) {
-      entity.username = dto.username;
-    }
+    try {
+      const entity = await this.prisma.controller.update({
+        data: {
+          ...(dto.baseUrl !== undefined ? { baseUrl: dto.baseUrl } : {}),
+          ...(dto.name !== undefined ? { name: dto.name } : {}),
+          ...(dto.password !== undefined ? { passwordEnc: encryptString(dto.password) } : {}),
+          ...(dto.region !== undefined ? { region: dto.region } : {}),
+          ...(dto.subnetPoolCidr !== undefined ? { subnetPoolCidr: dto.subnetPoolCidr } : {}),
+          ...(dto.subnetPrefix !== undefined ? { subnetPrefix: dto.subnetPrefix } : {}),
+          ...(dto.username !== undefined ? { username: dto.username } : {}),
+        },
+        where: { id },
+      });
 
-    return this.toDto(entity);
+      if (
+        dto.baseUrl !== undefined ||
+        dto.password !== undefined ||
+        dto.username !== undefined
+      ) {
+        this.ztncuiService.clearSession(id);
+      }
+
+      return this.toDto(entity);
+    } catch (error) {
+      this.handlePrismaWriteError(error);
+    }
   }
 
-  remove(id: number) {
-    const index = this.controllers.findIndex((controller) => controller.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`控制器 ${id} 不存在`);
-    }
-    this.controllers.splice(index, 1);
+  async remove(id: number) {
+    await this.findEntity(id);
+    await this.prisma.controller.delete({
+      where: { id },
+    });
     this.ztncuiService.clearSession(id);
     return {
       success: true,
@@ -82,13 +102,17 @@ export class ControllersService {
   }
 
   async testConnection(id: number) {
-    const config = this.getControllerConfigOrThrow(id);
-    const entity = this.findEntity(id);
+    const config = await this.getControllerConfigOrThrow(id);
 
     try {
       const result = await this.ztncuiService.testConnection(config);
-      entity.lastCheckedAt = new Date().toISOString();
-      entity.status = 'online';
+      await this.prisma.controller.update({
+        data: {
+          lastCheckedAt: new Date(),
+          status: 'online',
+        },
+        where: { id },
+      });
       return {
         controllerAddress: result.controllerAddress,
         controllerHome: '/controller',
@@ -96,14 +120,19 @@ export class ControllersService {
         version: result.version,
       };
     } catch (error) {
-      entity.lastCheckedAt = new Date().toISOString();
-      entity.status = 'offline';
+      await this.prisma.controller.update({
+        data: {
+          lastCheckedAt: new Date(),
+          status: 'offline',
+        },
+        where: { id },
+      });
       throw error;
     }
   }
 
-  getControllerConfigOrThrow(id: number): ControllerConfig {
-    const entity = this.findEntity(id);
+  async getControllerConfigOrThrow(id: number): Promise<ControllerConfig> {
+    const entity = await this.findEntity(id);
     return {
       baseUrl: entity.baseUrl,
       id: entity.id,
@@ -116,25 +145,43 @@ export class ControllersService {
     };
   }
 
-  private findEntity(id: number) {
-    const entity = this.controllers.find((controller) => controller.id === id);
+  private async findEntity(id: number) {
+    const entity = await this.prisma.controller.findUnique({
+      where: { id },
+    });
     if (!entity) {
       throw new NotFoundException(`控制器 ${id} 不存在`);
     }
     return entity;
   }
 
-  private toDto(entity: ControllerEntity): ControllerDto {
+  private handlePrismaWriteError(error: unknown): never {
+    if (isPrismaLikeError(error) && error.code === 'P2002') {
+      throw new ConflictException('控制器名称已存在');
+    }
+
+    throw error;
+  }
+
+  private toDto(entity: ControllerRecord): ControllerDto {
     return {
       baseUrl: entity.baseUrl,
       id: entity.id,
-      lastCheckedAt: entity.lastCheckedAt,
+      lastCheckedAt: entity.lastCheckedAt?.toISOString() ?? null,
       name: entity.name,
       region: entity.region,
-      status: entity.status,
+      status: this.normalizeStatus(entity.status),
       subnetPoolCidr: entity.subnetPoolCidr,
       subnetPrefix: entity.subnetPrefix,
       username: entity.username,
     };
+  }
+
+  private normalizeStatus(status: string): ControllerDto['status'] {
+    if (status === 'online' || status === 'offline') {
+      return status;
+    }
+
+    return 'unknown';
   }
 }

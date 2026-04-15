@@ -20,29 +20,29 @@ export class ControllersController {
   constructor(private readonly controllersService: ControllersService) {}
 
   @Get()
-  list() {
+  async list() {
     return {
-      items: this.controllersService.list(),
+      items: await this.controllersService.list(),
     };
   }
 
   @Post()
-  create(@Body() dto: CreateControllerDto) {
+  async create(@Body() dto: CreateControllerDto) {
     return this.controllersService.create(dto);
   }
 
   @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateControllerDto) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateControllerDto) {
     return this.controllersService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id', ParseIntPipe) id: number) {
     return this.controllersService.remove(id);
   }
 
   @Post(':id/test')
-  testConnection(@Param('id', ParseIntPipe) id: number) {
+  async testConnection(@Param('id', ParseIntPipe) id: number) {
     return this.controllersService.testConnection(id);
   }
 }

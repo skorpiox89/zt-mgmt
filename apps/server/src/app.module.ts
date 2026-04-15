@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ControllersModule } from './modules/controllers/controllers.module';
 import { HealthModule } from './modules/health/health.module';
@@ -13,6 +14,7 @@ import { ZtncuiModule } from './modules/ztncui/ztncui.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    PrismaModule,
     AuthModule,
     UsersModule,
     ZtncuiModule,

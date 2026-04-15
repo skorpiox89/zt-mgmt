@@ -10,7 +10,7 @@ export class MembersService {
   ) {}
 
   async list(controllerId: number, networkId: string) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     const detail = await this.ztncuiService.getNetworkDetail(controller, networkId);
 
     return {
@@ -24,7 +24,7 @@ export class MembersService {
     memberId: string,
     authorized: boolean,
   ) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     await this.ztncuiService.setMemberAuthorized(controller, networkId, memberId, authorized);
 
     return {
@@ -41,7 +41,7 @@ export class MembersService {
     memberId: string,
     memberName: string,
   ) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     await this.ztncuiService.setMemberName(controller, networkId, memberId, memberName);
 
     return {
@@ -53,7 +53,7 @@ export class MembersService {
   }
 
   async remove(controllerId: number, networkId: string, memberId: string) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     await this.ztncuiService.deleteMember(controller, networkId, memberId);
 
     return {

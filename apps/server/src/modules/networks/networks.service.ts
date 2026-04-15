@@ -19,7 +19,7 @@ export class NetworksService {
     keyword?: string;
     region?: string;
   }) {
-    const controllers = this.controllersService.list().filter((controller) => {
+    const controllers = (await this.controllersService.list()).filter((controller) => {
       if (filters.controllerId && controller.id !== filters.controllerId) {
         return false;
       }
@@ -31,7 +31,7 @@ export class NetworksService {
 
     const items = await Promise.all(
       controllers.map(async (controller) => {
-        const config = this.controllersService.getControllerConfigOrThrow(controller.id);
+        const config = await this.controllersService.getControllerConfigOrThrow(controller.id);
         const networks = await this.ztncuiService.listNetworks(config);
         return networks.map((network) => ({
           controllerId: controller.id,
@@ -55,7 +55,7 @@ export class NetworksService {
   }
 
   async detail(controllerId: number, networkId: string) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     const detail = await this.ztncuiService.getNetworkDetail(controller, networkId);
 
     return {
@@ -72,7 +72,7 @@ export class NetworksService {
 
   async create(dto: CreateNetworkDto) {
     return this.withControllerLock(dto.controllerId, async () => {
-      const controller = this.controllersService.getControllerConfigOrThrow(dto.controllerId);
+      const controller = await this.controllersService.getControllerConfigOrThrow(dto.controllerId);
       const created = await this.ztncuiService.createNetwork(controller, dto.networkName);
       const existingNetworks = await this.ztncuiService.listNetworks(controller);
 
@@ -110,7 +110,7 @@ export class NetworksService {
   }
 
   async rename(controllerId: number, networkId: string, networkName: string) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     await this.ztncuiService.renameNetwork(controller, networkId, networkName);
 
     return {
@@ -121,7 +121,7 @@ export class NetworksService {
   }
 
   async remove(controllerId: number, networkId: string) {
-    const controller = this.controllersService.getControllerConfigOrThrow(controllerId);
+    const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
     await this.ztncuiService.deleteNetwork(controller, networkId);
 
     return {
