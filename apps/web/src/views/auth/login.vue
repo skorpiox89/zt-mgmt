@@ -65,9 +65,9 @@ async function handleSubmit() {
 }
 
 .login-panel {
-  width: min(1040px, 100%);
+  width: min(1120px, 100%);
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 408px);
   border-radius: 28px;
   overflow: hidden;
   background:
@@ -77,19 +77,20 @@ async function handleSubmit() {
 }
 
 .login-copy {
-  padding: 56px;
+  padding: clamp(40px, 4vw, 64px);
   color: #f8fafc;
 }
 
 .login-copy h1 {
   margin: 16px 0 12px;
-  font-size: 48px;
-  line-height: 1;
+  font-size: clamp(40px, 2vw + 0.9rem, 54px);
+  line-height: 0.98;
   letter-spacing: -0.05em;
+  white-space: nowrap;
 }
 
 .login-copy p {
-  max-width: 32rem;
+  max-width: 34rem;
   color: rgba(248, 250, 252, 0.82);
   font-size: 16px;
   line-height: 1.6;
@@ -104,7 +105,7 @@ async function handleSubmit() {
 }
 
 .login-card {
-  padding: 28px;
+  padding: clamp(28px, 3vw, 36px);
   border-radius: 0;
 }
 
@@ -114,6 +115,17 @@ async function handleSubmit() {
   letter-spacing: -0.03em;
 }
 
+@media (max-width: 1080px) {
+  .login-panel {
+    width: min(980px, 100%);
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+  }
+
+  .login-copy h1 {
+    font-size: clamp(36px, 4.2vw, 46px);
+  }
+}
+
 @media (max-width: 900px) {
   .login-panel {
     grid-template-columns: 1fr;
@@ -121,6 +133,10 @@ async function handleSubmit() {
 
   .login-copy {
     padding: 32px;
+  }
+
+  .login-copy h1 {
+    white-space: normal;
   }
 }
 </style>

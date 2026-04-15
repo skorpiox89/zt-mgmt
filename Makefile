@@ -4,7 +4,7 @@ PNPM := pnpm
 ROOT_DIR := $(CURDIR)
 ENV_FILE := $(ROOT_DIR)/.env
 
-.PHONY: help env install build lint server-build server-dev server-start web-build web-dev web-preview dev prisma-generate prisma-migrate clean
+.PHONY: help env install build lint server-build server-dev server-start web-build web-dev web-preview dev prisma-generate prisma-migrate clean redeploy
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -66,3 +66,6 @@ prisma-migrate: ## Run Prisma migrations for the server
 
 clean: ## Remove build output
 	rm -rf apps/server/dist apps/web/dist
+
+redeploy:
+	docker compose down && docker compose up -d --build
