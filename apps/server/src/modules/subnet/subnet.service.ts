@@ -69,6 +69,6 @@ export class SubnetService {
       }
     }
 
-    throw new Error(`No available /${targetPrefix} subnet left in ${poolCidr}`);
+    throw new Error(`${poolCidr} 中已没有可分配的 /${targetPrefix} 子网`);
   }
 }

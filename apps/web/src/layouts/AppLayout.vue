@@ -2,30 +2,30 @@
   <a-layout style="min-height: 100vh">
     <a-layout-sider :width="248" theme="light" style="border-right: 1px solid #e2e8f0">
       <div class="brand-panel">
-        <div class="brand-kicker">Unified Controller</div>
+        <div class="brand-kicker">统一管理平台</div>
         <div class="brand-title">ZT MGMT</div>
-        <div class="brand-caption">Internal console for multi-ztncui operations.</div>
+        <div class="brand-caption">用于统一管理多个 ztncui 控制器的内部控制台。</div>
       </div>
       <a-menu :selected-keys="selectedKeys" mode="inline">
         <a-menu-item key="/controllers" @click="router.push('/controllers')">
           <template #icon>
             <CloudServerOutlined />
           </template>
-          Controller Management
+          控制器管理
         </a-menu-item>
         <a-menu-item key="/networks" @click="router.push('/networks')">
           <template #icon>
             <DatabaseOutlined />
           </template>
-          Network Management
+          网络管理
         </a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
       <a-layout-header class="topbar">
         <div>
-          <div class="topbar-title">ZeroTier Unified Admin</div>
-          <div class="topbar-subtitle">Manage controllers, networks, and members in one place.</div>
+          <div class="topbar-title">ZeroTier 统一管理台</div>
+          <div class="topbar-subtitle">在一个界面中集中管理控制器、网络和成员。</div>
         </div>
         <div class="topbar-actions">
           <span class="topbar-user">{{ authStore.user?.username || 'admin' }}</span>
@@ -33,7 +33,7 @@
             <template #icon>
               <LogoutOutlined />
             </template>
-            Logout
+            退出登录
           </a-button>
         </div>
       </a-layout-header>
@@ -74,7 +74,7 @@ async function handleLogout() {
     // Ignore server logout failures for local session cleanup.
   } finally {
     authStore.clearSession();
-    message.success('Logged out');
+    message.success('已退出登录');
     void router.push('/login');
   }
 }

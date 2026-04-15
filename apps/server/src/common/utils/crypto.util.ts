@@ -20,7 +20,7 @@ export function encryptString(value: string) {
 export function decryptString(payload: string) {
   const [ivHex, tagHex, encryptedHex] = payload.split(':');
   if (!ivHex || !tagHex || !encryptedHex) {
-    throw new Error('Invalid encrypted payload format');
+    throw new Error('加密数据格式无效');
   }
 
   const decipher = createDecipheriv(ALGORITHM, getKey(), Buffer.from(ivHex, 'hex'));

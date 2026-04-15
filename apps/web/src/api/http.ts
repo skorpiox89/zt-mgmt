@@ -43,7 +43,7 @@ export async function request<T>(path: string, init?: RequestInit) {
   const payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || payload.code !== 0) {
-    throw new Error(payload.message || 'Request failed');
+    throw new Error(payload.message || '请求失败');
   }
 
   return payload.data;

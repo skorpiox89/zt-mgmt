@@ -3,19 +3,19 @@
     <a-card class="page-card" :bordered="false">
       <div class="toolbar">
         <div>
-          <h1 class="page-title">Network Management</h1>
+          <h1 class="page-title">网络管理</h1>
           <p class="page-subtitle">
-            Browse networks across all controllers and create a new network with automatic setup.
+            浏览所有控制器下的网络，并一键创建带自动初始化的新网络。
           </p>
         </div>
         <a-space>
-          <a-button @click="loadData">Refresh</a-button>
-          <a-button type="primary" @click="openCreateModal">Create Network</a-button>
+          <a-button @click="loadData">刷新</a-button>
+          <a-button type="primary" @click="openCreateModal">创建网络</a-button>
         </a-space>
       </div>
 
       <a-form layout="inline" style="margin-bottom: 20px">
-        <a-form-item label="Controller">
+        <a-form-item label="控制器">
           <a-select
             v-model:value="filters.controllerId"
             :allow-clear="true"
@@ -23,11 +23,11 @@
             style="width: 220px"
           />
         </a-form-item>
-        <a-form-item label="Keyword">
-          <a-input v-model:value="filters.keyword" placeholder="Search network name" style="width: 220px" />
+        <a-form-item label="关键词">
+          <a-input v-model:value="filters.keyword" placeholder="搜索网络名称" style="width: 220px" />
         </a-form-item>
         <a-form-item>
-          <a-button type="primary" @click="loadData">Search</a-button>
+          <a-button type="primary" @click="loadData">搜索</a-button>
         </a-form-item>
       </a-form>
 
@@ -44,11 +44,11 @@
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button size="small" @click="router.push(`/networks/${record.controllerId}/${record.networkId}`)">
-                Detail
+                详情
               </a-button>
-              <a-button size="small" @click="openRenameModal(record)">Rename</a-button>
+              <a-button size="small" @click="openRenameModal(record)">重命名</a-button>
               <a-button danger size="small" @click="handleDelete(record.controllerId, record.networkId)">
-                Delete
+                删除
               </a-button>
             </a-space>
           </template>
@@ -59,18 +59,18 @@
     <a-modal
       v-model:open="createOpen"
       :confirm-loading="saving"
-      title="Create Network"
+      title="创建网络"
       @ok="handleCreate"
     >
       <a-form layout="vertical">
-        <a-form-item label="Controller">
+        <a-form-item label="控制器">
           <a-select
             v-model:value="createForm.controllerId"
             :options="controllerOptions"
-            placeholder="Select controller"
+            placeholder="请选择控制器"
           />
         </a-form-item>
-        <a-form-item label="Network Name">
+        <a-form-item label="网络名称">
           <a-input v-model:value="createForm.networkName" placeholder="office-vpn" />
         </a-form-item>
       </a-form>
@@ -79,11 +79,11 @@
     <a-modal
       v-model:open="renameOpen"
       :confirm-loading="saving"
-      title="Rename Network"
+      title="重命名网络"
       @ok="handleRename"
     >
       <a-form layout="vertical">
-        <a-form-item label="Network Name">
+        <a-form-item label="网络名称">
           <a-input v-model:value="renameValue" />
         </a-form-item>
       </a-form>
@@ -124,12 +124,12 @@ const createForm = reactive({
 });
 
 const columns = [
-  { dataIndex: 'controllerName', key: 'controllerName', title: 'Controller' },
-  { dataIndex: 'region', key: 'region', title: 'Region' },
-  { dataIndex: 'networkName', key: 'networkName', title: 'Network Name' },
-  { dataIndex: 'networkId', key: 'networkId', title: 'Network ID' },
-  { dataIndex: 'memberCount', key: 'memberCount', title: 'Members' },
-  { key: 'actions', title: 'Actions' },
+  { dataIndex: 'controllerName', key: 'controllerName', title: '控制器' },
+  { dataIndex: 'region', key: 'region', title: '区域' },
+  { dataIndex: 'networkName', key: 'networkName', title: '网络名称' },
+  { dataIndex: 'networkId', key: 'networkId', title: '网络 ID' },
+  { dataIndex: 'memberCount', key: 'memberCount', title: '成员数' },
+  { key: 'actions', title: '操作' },
 ];
 
 const controllerOptions = computed(() =>
@@ -166,7 +166,7 @@ async function loadData() {
     });
     networks.value = result.items;
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Failed to load networks');
+    message.error(error instanceof Error ? error.message : '加载网络列表失败');
   } finally {
     loading.value = false;
   }
@@ -174,7 +174,7 @@ async function loadData() {
 
 async function handleCreate() {
   if (!createForm.controllerId) {
-    message.warning('Select a controller first');
+    message.warning('请先选择控制器');
     return;
   }
 
@@ -184,12 +184,12 @@ async function handleCreate() {
       controllerId: createForm.controllerId,
       networkName: createForm.networkName,
     });
-    message.success(`Network created with CIDR ${result.networkCidr}`);
+    message.success(`网络创建成功，CIDR：${result.networkCidr}`);
     createOpen.value = false;
     await loadData();
     await router.push(`/networks/${result.controllerId}/${result.networkId}`);
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Failed to create network');
+    message.error(error instanceof Error ? error.message : '创建网络失败');
   } finally {
     saving.value = false;
   }
@@ -207,11 +207,11 @@ async function handleRename() {
       renameTarget.value.networkId,
       renameValue.value,
     );
-    message.success('Network renamed');
+    message.success('网络重命名成功');
     renameOpen.value = false;
     await loadData();
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Failed to rename network');
+    message.error(error instanceof Error ? error.message : '重命名网络失败');
   } finally {
     saving.value = false;
   }
@@ -219,19 +219,19 @@ async function handleRename() {
 
 function handleDelete(controllerId: number, networkId: string) {
   Modal.confirm({
-    content: 'Delete this network? This action cannot be undone.',
-    okText: 'Delete',
+    content: '确认删除这个网络吗？删除后无法恢复。',
+    okText: '删除',
     okType: 'danger',
     onOk: async () => {
       try {
         await deleteNetwork(controllerId, networkId);
-        message.success('Network deleted');
+        message.success('网络已删除');
         await loadData();
       } catch (error) {
-        message.error(error instanceof Error ? error.message : 'Failed to delete network');
+        message.error(error instanceof Error ? error.message : '删除网络失败');
       }
     },
-    title: 'Delete Network',
+    title: '删除网络',
   });
 }
 

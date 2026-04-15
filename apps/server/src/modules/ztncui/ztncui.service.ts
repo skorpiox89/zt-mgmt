@@ -38,7 +38,7 @@ export class ZtncuiService {
     });
 
     if (response.status >= 400) {
-      throw new BadGatewayException('Unable to reach ztncui controller home page');
+      throw new BadGatewayException('无法访问 ztncui 控制器首页');
     }
 
     return parseControllerHome(response.body);
@@ -77,12 +77,12 @@ export class ZtncuiService {
 
     const location = response.headers.get('location');
     if (!location) {
-      throw new BadGatewayException('ztncui create network did not return a redirect');
+      throw new BadGatewayException('ztncui 创建网络后未返回重定向');
     }
 
     const match = location.match(/\/controller\/network\/([a-z0-9]{16})/i);
     if (!match) {
-      throw new BadGatewayException('Unable to parse created network id from ztncui response');
+      throw new BadGatewayException('无法从 ztncui 响应中解析新建网络 ID');
     }
 
     return {
@@ -194,16 +194,12 @@ export class ZtncuiService {
     });
 
     if (response.status !== 302 || response.headers.get('location') !== '/controller') {
-      throw new UnauthorizedException(
-        `ztncui login failed for controller ${controller.name}`,
-      );
+      throw new UnauthorizedException(`控制器 ${controller.name} 的 ztncui 登录失败`);
     }
 
     const cookieHeader = this.extractCookieHeader(response.headers);
     if (!cookieHeader) {
-      throw new UnauthorizedException(
-        `ztncui login for controller ${controller.name} did not return a session cookie`,
-      );
+      throw new UnauthorizedException(`控制器 ${controller.name} 登录后未返回会话 Cookie`);
     }
 
     this.sessionService.set(controller.id, cookieHeader);
@@ -239,11 +235,11 @@ export class ZtncuiService {
 
   private ensureValidResponse(response: ZtncuiResponse, allowAnyRedirect: boolean) {
     if (response.status >= 400) {
-      throw new BadGatewayException(`ztncui request failed with status ${response.status}`);
+      throw new BadGatewayException(`ztncui 请求失败，状态码 ${response.status}`);
     }
 
     if (response.status >= 300 && response.status < 400 && !allowAnyRedirect) {
-      throw new BadGatewayException('Unexpected ztncui redirect response');
+      throw new BadGatewayException('ztncui 返回了未预期的重定向响应');
     }
   }
 

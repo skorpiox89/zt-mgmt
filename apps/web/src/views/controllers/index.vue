@@ -3,12 +3,12 @@
     <a-card class="page-card" :bordered="false">
       <div class="toolbar">
         <div>
-          <h1 class="page-title">Controller Management</h1>
+          <h1 class="page-title">控制器管理</h1>
           <p class="page-subtitle">
-            Maintain ztncui endpoints and the subnet pool used for automatic network setup.
+            维护 ztncui 控制器地址，以及用于自动创建网络的子网池配置。
           </p>
         </div>
-        <a-button type="primary" @click="openCreateModal">Add Controller</a-button>
+        <a-button type="primary" @click="openCreateModal">新增控制器</a-button>
       </div>
 
       <a-table
@@ -20,7 +20,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
-            <a-tag :color="statusColor(record.status)">{{ record.status }}</a-tag>
+            <a-tag :color="statusColor(record.status)">{{ statusText(record.status) }}</a-tag>
           </template>
 
           <template v-else-if="column.key === 'lastCheckedAt'">
@@ -29,9 +29,9 @@
 
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button size="small" @click="openEditModal(record)">Edit</a-button>
-              <a-button size="small" @click="handleTest(record.id)">Test</a-button>
-              <a-button danger size="small" @click="handleDelete(record.id)">Delete</a-button>
+              <a-button size="small" @click="openEditModal(record)">编辑</a-button>
+              <a-button size="small" @click="handleTest(record.id)">测试连接</a-button>
+              <a-button danger size="small" @click="handleDelete(record.id)">删除</a-button>
             </a-space>
           </template>
         </template>
@@ -41,29 +41,29 @@
     <a-modal
       v-model:open="modalOpen"
       :confirm-loading="saving"
-      :title="editingId ? 'Edit Controller' : 'Add Controller'"
+      :title="editingId ? '编辑控制器' : '新增控制器'"
       @ok="handleSave"
     >
       <a-form layout="vertical">
-        <a-form-item label="Name">
+        <a-form-item label="名称">
           <a-input v-model:value="form.name" />
         </a-form-item>
-        <a-form-item label="Region">
+        <a-form-item label="区域">
           <a-input v-model:value="form.region" />
         </a-form-item>
-        <a-form-item label="Base URL">
+        <a-form-item label="控制器地址">
           <a-input v-model:value="form.baseUrl" placeholder="http://127.0.0.1:30980" />
         </a-form-item>
-        <a-form-item label="Username">
+        <a-form-item label="用户名">
           <a-input v-model:value="form.username" />
         </a-form-item>
-        <a-form-item label="Password">
+        <a-form-item label="密码">
           <a-input-password v-model:value="form.password" />
         </a-form-item>
-        <a-form-item label="Subnet Pool CIDR">
+        <a-form-item label="子网池 CIDR">
           <a-input v-model:value="form.subnetPoolCidr" placeholder="10.10.0.0/16" />
         </a-form-item>
-        <a-form-item label="Subnet Prefix">
+        <a-form-item label="子网前缀">
           <a-input-number v-model:value="form.subnetPrefix" :max="30" :min="1" style="width: 100%" />
         </a-form-item>
       </a-form>
@@ -99,13 +99,13 @@ const form = reactive<ControllerFormPayload>({
 });
 
 const columns = [
-  { dataIndex: 'name', key: 'name', title: 'Name' },
-  { dataIndex: 'region', key: 'region', title: 'Region' },
-  { dataIndex: 'baseUrl', key: 'baseUrl', title: 'Base URL' },
-  { dataIndex: 'subnetPoolCidr', key: 'subnetPoolCidr', title: 'Subnet Pool' },
-  { dataIndex: 'status', key: 'status', title: 'Status' },
-  { dataIndex: 'lastCheckedAt', key: 'lastCheckedAt', title: 'Last Checked' },
-  { key: 'actions', title: 'Actions' },
+  { dataIndex: 'name', key: 'name', title: '名称' },
+  { dataIndex: 'region', key: 'region', title: '区域' },
+  { dataIndex: 'baseUrl', key: 'baseUrl', title: '控制器地址' },
+  { dataIndex: 'subnetPoolCidr', key: 'subnetPoolCidr', title: '子网池' },
+  { dataIndex: 'status', key: 'status', title: '状态' },
+  { dataIndex: 'lastCheckedAt', key: 'lastCheckedAt', title: '最近检测时间' },
+  { key: 'actions', title: '操作' },
 ];
 
 function resetForm() {
@@ -146,13 +146,23 @@ function statusColor(status: ControllerItem['status']) {
   return 'default';
 }
 
+function statusText(status: ControllerItem['status']) {
+  if (status === 'online') {
+    return '在线';
+  }
+  if (status === 'offline') {
+    return '离线';
+  }
+  return '未知';
+}
+
 async function loadControllers() {
   loading.value = true;
   try {
     const result = await getControllers();
     controllers.value = result.items;
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Failed to load controllers');
+    message.error(error instanceof Error ? error.message : '加载控制器列表失败');
   } finally {
     loading.value = false;
   }
@@ -163,15 +173,15 @@ async function handleSave() {
   try {
     if (editingId.value) {
       await updateController(editingId.value, form);
-      message.success('Controller updated');
+      message.success('控制器更新成功');
     } else {
       await createController(form);
-      message.success('Controller created');
+      message.success('控制器创建成功');
     }
     modalOpen.value = false;
     await loadControllers();
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Failed to save controller');
+    message.error(error instanceof Error ? error.message : '保存控制器失败');
   } finally {
     saving.value = false;
   }
@@ -181,30 +191,30 @@ async function handleTest(id: number) {
   try {
     const result = await testController(id);
     message.success(
-      `Connection ok. Controller ${result.controllerAddress || '-'} / version ${result.version || '-'}`,
+      `连接成功。控制器地址：${result.controllerAddress || '-'}，版本：${result.version || '-'}`,
     );
     await loadControllers();
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Connection test failed');
+    message.error(error instanceof Error ? error.message : '连接测试失败');
     await loadControllers();
   }
 }
 
 function handleDelete(id: number) {
   Modal.confirm({
-    content: 'Delete this controller configuration?',
-    okText: 'Delete',
+    content: '确认删除这个控制器配置吗？',
+    okText: '删除',
     okType: 'danger',
     onOk: async () => {
       try {
         await deleteController(id);
-        message.success('Controller deleted');
+        message.success('控制器已删除');
         await loadControllers();
       } catch (error) {
-        message.error(error instanceof Error ? error.message : 'Failed to delete controller');
+        message.error(error instanceof Error ? error.message : '删除控制器失败');
       }
     },
-    title: 'Delete Controller',
+    title: '删除控制器',
   });
 }
 

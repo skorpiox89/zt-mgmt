@@ -2,24 +2,23 @@
   <div class="login-shell">
     <div class="login-panel">
       <div class="login-copy">
-        <div class="login-kicker">Internal Admin</div>
-        <h1>Unified ztncui Console</h1>
+        <div class="login-kicker">内部管理平台</div>
+        <h1>统一 ztncui 控制台</h1>
         <p>
-          Sign in to manage controllers, create networks with automatic initialization,
-          and operate members across regions.
+          登录后可统一管理控制器、自动初始化网络，并跨区域维护成员节点。
         </p>
       </div>
       <a-card :bordered="false" class="login-card">
-        <h2>Platform Login</h2>
+        <h2>平台登录</h2>
         <a-form :model="form" layout="vertical" @finish="handleSubmit">
-          <a-form-item label="Username" name="username">
+          <a-form-item label="用户名" name="username">
             <a-input v-model:value="form.username" placeholder="admin" />
           </a-form-item>
-          <a-form-item label="Password" name="password">
-            <a-input-password v-model:value="form.password" placeholder="Enter password" />
+          <a-form-item label="密码" name="password">
+            <a-input-password v-model:value="form.password" placeholder="请输入密码" />
           </a-form-item>
           <a-button :loading="loading" block html-type="submit" size="large" type="primary">
-            Sign In
+            登录
           </a-button>
         </a-form>
       </a-card>
@@ -47,10 +46,10 @@ async function handleSubmit() {
   try {
     const result = await login(form);
     authStore.setSession(result.token, result.user);
-    message.success('Login successful');
+    message.success('登录成功');
     await router.push('/controllers');
   } catch (error) {
-    message.error(error instanceof Error ? error.message : 'Login failed');
+    message.error(error instanceof Error ? error.message : '登录失败');
   } finally {
     loading.value = false;
   }

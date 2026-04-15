@@ -17,7 +17,7 @@ export class UsersService {
     const expectedPassword = process.env.ADMIN_PASSWORD || '123456';
 
     if (username !== expectedUsername || password !== expectedPassword) {
-      throw new UnauthorizedException('Invalid username or password');
+      throw new UnauthorizedException('用户名或密码错误');
     }
 
     return this.defaultUser;

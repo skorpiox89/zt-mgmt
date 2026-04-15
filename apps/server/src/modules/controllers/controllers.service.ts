@@ -72,7 +72,7 @@ export class ControllersService {
   remove(id: number) {
     const index = this.controllers.findIndex((controller) => controller.id === id);
     if (index === -1) {
-      throw new NotFoundException(`Controller ${id} not found`);
+      throw new NotFoundException(`控制器 ${id} 不存在`);
     }
     this.controllers.splice(index, 1);
     this.ztncuiService.clearSession(id);
@@ -119,7 +119,7 @@ export class ControllersService {
   private findEntity(id: number) {
     const entity = this.controllers.find((controller) => controller.id === id);
     if (!entity) {
-      throw new NotFoundException(`Controller ${id} not found`);
+      throw new NotFoundException(`控制器 ${id} 不存在`);
     }
     return entity;
   }

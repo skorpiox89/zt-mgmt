@@ -31,7 +31,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? exceptionResponse.message
           : exception instanceof Error
             ? exception.message
-            : 'Internal server error';
+            : '服务器内部错误';
 
     response.status(status).json({
       code: status,
