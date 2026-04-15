@@ -1,0 +1,15 @@
+.git
+.gitignore
+.codex
+.env
+.env.local
+.env.*.local
+node_modules
+apps/server/node_modules
+apps/web/node_modules
+packages/shared/node_modules
+apps/server/dist
+apps/web/dist
+coverage
+*.log
+user-pass.txt
