@@ -10,3 +10,12 @@ export interface MemberItem {
   physicalAddress: string | null;
   version: string | null;
 }
+
+export interface UpdateMemberNameResult {
+  accepted: boolean;
+  controllerId: number;
+  memberId: string;
+  memberName: string;
+  networkId: string;
+  requestTimedOut: boolean;
+}

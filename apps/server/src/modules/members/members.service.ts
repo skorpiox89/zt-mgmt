@@ -42,13 +42,20 @@ export class MembersService {
     memberName: string,
   ) {
     const controller = await this.controllersService.getControllerConfigOrThrow(controllerId);
-    await this.ztncuiService.setMemberName(controller, networkId, memberId, memberName);
+    const result = await this.ztncuiService.setMemberName(
+      controller,
+      networkId,
+      memberId,
+      memberName,
+    );
 
     return {
+      accepted: true,
       controllerId,
       memberId,
       memberName,
       networkId,
+      requestTimedOut: result.requestTimedOut,
     };
   }
 

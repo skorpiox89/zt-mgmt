@@ -13,6 +13,7 @@ interface ZtncuiRequestOptions {
   form?: Record<string, string>;
   method: 'GET' | 'POST';
   path: string;
+  timeoutMs?: number;
 }
 
 interface ZtncuiResponse {
@@ -20,6 +21,8 @@ interface ZtncuiResponse {
   headers: Headers;
   status: number;
 }
+
+class ZtncuiRequestTimeoutError extends Error {}
 
 @Injectable()
 export class ZtncuiService {
@@ -156,14 +159,29 @@ export class ZtncuiService {
     memberId: string,
     memberName: string,
   ) {
-    await this.request(controller, {
-      form: {
-        id: memberId,
-        name: memberName,
-      },
-      method: 'POST',
-      path: `/controller/network/${networkId}/members`,
-    });
+    try {
+      await this.request(controller, {
+        form: {
+          id: memberId,
+          name: memberName,
+        },
+        method: 'POST',
+        path: `/controller/network/${networkId}/members`,
+        timeoutMs: 3000,
+      });
+    } catch (error) {
+      if (error instanceof ZtncuiRequestTimeoutError) {
+        return {
+          requestTimedOut: true,
+        };
+      }
+
+      throw error;
+    }
+
+    return {
+      requestTimedOut: false,
+    };
   }
 
   async deleteMember(controller: ControllerConfig, networkId: string, memberId: string) {
@@ -270,6 +288,12 @@ export class ZtncuiService {
   ): Promise<ZtncuiResponse> {
     const headers = new Headers();
     let body: string | undefined;
+    const abortController = options.timeoutMs ? new AbortController() : null;
+    const timeoutId = abortController
+      ? setTimeout(() => {
+          abortController.abort();
+        }, options.timeoutMs)
+      : null;
 
     if (options.cookieHeader) {
       headers.set('Cookie', options.cookieHeader);
@@ -280,18 +304,31 @@ export class ZtncuiService {
       body = new URLSearchParams(options.form).toString();
     }
 
-    const response = await fetch(this.buildUrl(controller.baseUrl, options.path), {
-      body,
-      headers,
-      method: options.method,
-      redirect: 'manual',
-    });
+    try {
+      const response = await fetch(this.buildUrl(controller.baseUrl, options.path), {
+        body,
+        headers,
+        method: options.method,
+        redirect: 'manual',
+        signal: abortController?.signal,
+      });
 
-    return {
-      body: await response.text(),
-      headers: response.headers,
-      status: response.status,
-    };
+      return {
+        body: await response.text(),
+        headers: response.headers,
+        status: response.status,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ZtncuiRequestTimeoutError('ztncui 请求超时');
+      }
+
+      throw error;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   private buildUrl(baseUrl: string, path: string) {

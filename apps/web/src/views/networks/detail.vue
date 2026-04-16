@@ -80,7 +80,9 @@
 
     <a-modal
       v-model:open="renameOpen"
+      :cancel-button-props="{ disabled: saving }"
       :confirm-loading="saving"
+      :ok-text="renameOkText"
       title="修改成员名称"
       @ok="handleRename"
     >
@@ -88,6 +90,7 @@
         <a-form-item label="成员名称" extra="该字段对应 ztncui 中的成员名称字段。">
           <a-input v-model:value="renameValue" />
         </a-form-item>
+        <div v-if="renameStatusText" class="rename-status">{{ renameStatusText }}</div>
       </a-form>
     </a-modal>
   </div>
@@ -95,7 +98,7 @@
 
 <script setup lang="ts">
 import { Modal, message } from 'ant-design-vue';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { deleteMember, getMembers, updateMemberAuth, updateMemberName } from '../../api/members';
 import { getNetworkDetail } from '../../api/networks';
@@ -108,10 +111,14 @@ const router = useRouter();
 const visibilityStore = useNetworkVisibilityStore();
 const controllerId = Number(route.params.controllerId);
 const networkId = String(route.params.networkId);
+const RENAME_CONFIRM_ATTEMPTS = 5;
+const RENAME_CONFIRM_INTERVAL_MS = 800;
 
 const loading = ref(false);
 const saving = ref(false);
 const renameOpen = ref(false);
+const renameConfirmAttempt = ref(0);
+const renamePhase = ref<'confirming' | 'idle' | 'submitting'>('idle');
 const renameMemberId = ref('');
 const renameValue = ref('');
 const detail = ref<NetworkDetail | null>(null);
@@ -127,6 +134,30 @@ const columns = [
   { key: 'actions', title: '操作' },
 ];
 
+const renameOkText = computed(() => {
+  if (renamePhase.value === 'submitting') {
+    return '正在提交...';
+  }
+
+  if (renamePhase.value === 'confirming') {
+    return `确认中 ${renameConfirmAttempt.value}/${RENAME_CONFIRM_ATTEMPTS}`;
+  }
+
+  return '确定';
+});
+
+const renameStatusText = computed(() => {
+  if (renamePhase.value === 'submitting') {
+    return '正在提交改名请求，请稍候。';
+  }
+
+  if (renamePhase.value === 'confirming') {
+    return `正在确认改名是否已生效，第 ${renameConfirmAttempt.value}/${RENAME_CONFIRM_ATTEMPTS} 次检查。`;
+  }
+
+  return '';
+});
+
 function formatBoolean(value: boolean | null | undefined) {
   if (value === null || value === undefined) {
     return '-';
@@ -137,6 +168,8 @@ function formatBoolean(value: boolean | null | undefined) {
 function openRenameModal(memberId: string, memberName: string) {
   renameMemberId.value = memberId;
   renameValue.value = memberName;
+  renameConfirmAttempt.value = 0;
+  renamePhase.value = 'idle';
   renameOpen.value = true;
 }
 
@@ -174,17 +207,72 @@ async function handleToggleAuth(memberId: string, checked: boolean) {
 }
 
 async function handleRename() {
+  const expectedMemberName = renameValue.value.trim();
+  if (!expectedMemberName) {
+    message.warning('成员名称不能为空');
+    return;
+  }
+
   saving.value = true;
   try {
-    await updateMemberName(controllerId, networkId, renameMemberId.value, renameValue.value);
+    renamePhase.value = 'submitting';
+    const result = await updateMemberName(
+      controllerId,
+      networkId,
+      renameMemberId.value,
+      expectedMemberName,
+    );
+
+    const confirmed = await confirmRenameApplied(renameMemberId.value, expectedMemberName);
+    if (!confirmed) {
+      message.warning(
+        result.requestTimedOut
+          ? '改名请求提交时上游响应超时，且在限定次数内未确认生效。请稍后刷新确认。'
+          : '改名请求已提交，但在限定次数内未确认生效，请稍后刷新重试。',
+      );
+      renamePhase.value = 'idle';
+      return;
+    }
+
     message.success('成员名称更新成功');
     renameOpen.value = false;
+    renamePhase.value = 'idle';
     await loadData();
   } catch (error) {
+    renamePhase.value = 'idle';
     message.error(error instanceof Error ? error.message : '更新成员名称失败');
   } finally {
     saving.value = false;
   }
+}
+
+async function confirmRenameApplied(memberId: string, expectedMemberName: string) {
+  renamePhase.value = 'confirming';
+  renameConfirmAttempt.value = 0;
+
+  for (let attempt = 1; attempt <= RENAME_CONFIRM_ATTEMPTS; attempt += 1) {
+    renameConfirmAttempt.value = attempt;
+
+    const result = await getMembers(controllerId, networkId);
+    members.value = result.items;
+    const targetMember = result.items.find((item) => item.memberId === memberId);
+
+    if (targetMember?.memberName === expectedMemberName) {
+      return true;
+    }
+
+    if (attempt < RENAME_CONFIRM_ATTEMPTS) {
+      await sleep(RENAME_CONFIRM_INTERVAL_MS);
+    }
+  }
+
+  return false;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function handleDelete(memberId: string) {
@@ -227,5 +315,11 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.rename-status {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
 }
 </style>

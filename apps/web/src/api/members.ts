@@ -1,5 +1,6 @@
 import { request } from './http';
 import type { MembersResponse } from '../types/network';
+import type { UpdateMemberNameResult } from '../types/member';
 
 export function getMembers(controllerId: number, networkId: string) {
   return request<MembersResponse>(`/networks/${controllerId}/${networkId}/members`);
@@ -23,10 +24,13 @@ export function updateMemberName(
   memberId: string,
   memberName: string,
 ) {
-  return request(`/networks/${controllerId}/${networkId}/members/${memberId}/name`, {
-    body: JSON.stringify({ memberName }),
-    method: 'PATCH',
-  });
+  return request<UpdateMemberNameResult>(
+    `/networks/${controllerId}/${networkId}/members/${memberId}/name`,
+    {
+      body: JSON.stringify({ memberName }),
+      method: 'PATCH',
+    },
+  );
 }
 
 export function deleteMember(
