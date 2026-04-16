@@ -99,11 +99,13 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { deleteMember, getMembers, updateMemberAuth, updateMemberName } from '../../api/members';
 import { getNetworkDetail } from '../../api/networks';
+import { useNetworkVisibilityStore } from '../../stores/network-visibility';
 import type { MemberItem } from '../../types/member';
 import type { NetworkDetail } from '../../types/network';
 
 const route = useRoute();
 const router = useRouter();
+const visibilityStore = useNetworkVisibilityStore();
 const controllerId = Number(route.params.controllerId);
 const networkId = String(route.params.networkId);
 
@@ -141,6 +143,13 @@ function openRenameModal(memberId: string, memberName: string) {
 async function loadData() {
   loading.value = true;
   try {
+    await visibilityStore.ensureLoaded();
+    if (visibilityStore.isHidden(controllerId, networkId)) {
+      message.warning('该网络已对当前账号隐藏');
+      await router.push('/networks');
+      return;
+    }
+
     const [networkDetail, membersResult] = await Promise.all([
       getNetworkDetail(controllerId, networkId),
       getMembers(controllerId, networkId),

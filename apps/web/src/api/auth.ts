@@ -1,8 +1,20 @@
 import { request } from './http';
-import type { LoginPayload, LoginResponse, SessionUser } from '../types/auth';
+import type {
+  ChangePasswordPayload,
+  LoginPayload,
+  LoginResponse,
+  SessionUser,
+} from '../types/auth';
 
 export function login(payload: LoginPayload) {
   return request<LoginResponse>('/auth/login', {
+    body: JSON.stringify(payload),
+    method: 'POST',
+  });
+}
+
+export function changePassword(payload: ChangePasswordPayload) {
+  return request<LoginResponse>('/auth/change-password', {
     body: JSON.stringify(payload),
     method: 'POST',
   });

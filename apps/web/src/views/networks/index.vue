@@ -102,10 +102,12 @@ import {
   getNetworks,
   renameNetwork,
 } from '../../api/networks';
+import { useNetworkVisibilityStore } from '../../stores/network-visibility';
 import type { ControllerItem } from '../../types/controller';
 import type { NetworkItem } from '../../types/network';
 
 const router = useRouter();
+const visibilityStore = useNetworkVisibilityStore();
 const loading = ref(false);
 const saving = ref(false);
 const createOpen = ref(false);
@@ -159,12 +161,13 @@ async function loadControllersData() {
 async function loadData() {
   loading.value = true;
   try {
+    await visibilityStore.ensureLoaded();
     await loadControllersData();
     const result = await getNetworks({
       controllerId: filters.controllerId,
       keyword: filters.keyword || undefined,
     });
-    networks.value = result.items;
+    networks.value = visibilityStore.filterNetworks(result.items);
   } catch (error) {
     message.error(error instanceof Error ? error.message : '加载网络列表失败');
   } finally {
@@ -187,6 +190,10 @@ async function handleCreate() {
     message.success(`网络创建成功，CIDR：${result.networkCidr}`);
     createOpen.value = false;
     await loadData();
+    if (visibilityStore.isHidden(result.controllerId, result.networkId)) {
+      message.warning('网络已创建，但当前账号的隐藏配置不允许查看该网络');
+      return;
+    }
     await router.push(`/networks/${result.controllerId}/${result.networkId}`);
   } catch (error) {
     message.error(error instanceof Error ? error.message : '创建网络失败');

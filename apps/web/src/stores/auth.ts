@@ -5,16 +5,39 @@ import type { SessionUser } from '../types/auth';
 const TOKEN_KEY = 'zt-mgmt-token';
 const USER_KEY = 'zt-mgmt-user';
 
-export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
-  const user = ref<SessionUser | null>(
-    (() => {
-      const raw = localStorage.getItem(USER_KEY);
-      return raw ? (JSON.parse(raw) as SessionUser) : null;
-    })(),
-  );
+function parseStoredUser() {
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) {
+    return null;
+  }
 
-  const isAuthenticated = computed(() => Boolean(token.value));
+  try {
+    const parsed = JSON.parse(raw) as Partial<SessionUser>;
+    if (
+      typeof parsed.id === 'number' &&
+      (parsed.role === 'ADMIN' || parsed.role === 'USER') &&
+      typeof parsed.username === 'string'
+    ) {
+      return parsed as SessionUser;
+    }
+  } catch {
+    // Ignore malformed local storage content.
+  }
+
+  localStorage.removeItem(USER_KEY);
+  return null;
+}
+
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref<SessionUser | null>(parseStoredUser());
+  const token = ref<string | null>(user.value ? localStorage.getItem(TOKEN_KEY) : null);
+
+  if (!user.value) {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+
+  const isAdmin = computed(() => user.value?.role === 'ADMIN');
+  const isAuthenticated = computed(() => Boolean(token.value && user.value));
 
   function setSession(nextToken: string, nextUser: SessionUser) {
     token.value = nextToken;
@@ -32,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     clearSession,
+    isAdmin,
     isAuthenticated,
     setSession,
     token,

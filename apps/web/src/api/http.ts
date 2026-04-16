@@ -42,6 +42,13 @@ export async function request<T>(path: string, init?: RequestInit) {
 
   const payload = (await response.json()) as ApiEnvelope<T>;
 
+  if (response.status === 401 && authStore.token) {
+    authStore.clearSession();
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+  }
+
   if (!response.ok || payload.code !== 0) {
     throw new Error(payload.message || '请求失败');
   }

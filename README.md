@@ -111,14 +111,15 @@ docker compose up -d --build
 DATABASE_URL=mysql://zt_mgmt:zt_mgmt@127.0.0.1:3306/zt_mgmt
 JWT_SECRET=replace-this-with-a-long-random-string
 CONTROLLER_PASSWORD_KEY=replace-this-with-a-long-random-string
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=123456
 VITE_API_BASE_URL=/api
 ```
 
+首次启动并完成数据库迁移后，系统会自动初始化唯一管理员账号：`admin / admin`。
+请在首次登录后立即修改该密码。
+
 ## 当前边界
 
-- 当前仅支持单个平台管理员，不包含多租户与权限分级
+- 当前采用轻量用户体系：唯一管理员 + 多个普通用户，不包含多租户与通用 RBAC
 - 控制器配置持久化到 MySQL；网络与成员数据仍以实时拉取为主
 - 上游集成依赖 `ztncui` Web 登录与页面解析，不是直接调用 ZeroTier 官方 API
 - 仓库暂未提供完整自动化测试与端到端测试套件

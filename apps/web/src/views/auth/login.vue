@@ -12,7 +12,7 @@
         <h2>平台登录</h2>
         <a-form :model="form" layout="vertical" @finish="handleSubmit">
           <a-form-item label="用户名" name="username">
-            <a-input v-model:value="form.username" placeholder="admin" />
+            <a-input v-model:value="form.username" placeholder="请输入用户名" />
           </a-form-item>
           <a-form-item label="密码" name="password">
             <a-input-password v-model:value="form.password" placeholder="请输入密码" />
@@ -37,8 +37,8 @@ const router = useRouter();
 const authStore = useAuthStore();
 const loading = ref(false);
 const form = reactive({
-  password: '123456',
-  username: 'admin',
+  password: '',
+  username: '',
 });
 
 async function handleSubmit() {

@@ -4,6 +4,7 @@ import LoginView from '../views/auth/login.vue';
 import ControllersView from '../views/controllers/index.vue';
 import NetworksView from '../views/networks/index.vue';
 import NetworkDetailView from '../views/networks/detail.vue';
+import UsersView from '../views/users/index.vue';
 import AppLayout from '../layouts/AppLayout.vue';
 
 const router = createRouter({
@@ -37,6 +38,13 @@ const router = createRouter({
           component: NetworkDetailView,
           props: true,
         },
+        {
+          path: 'users',
+          component: UsersView,
+          meta: {
+            adminOnly: true,
+          },
+        },
       ],
     },
   ],
@@ -54,6 +62,10 @@ router.beforeEach((to) => {
 
   if (!authStore.isAuthenticated) {
     return '/login';
+  }
+
+  if (to.meta.adminOnly && !authStore.isAdmin) {
+    return '/controllers';
   }
 
   return true;

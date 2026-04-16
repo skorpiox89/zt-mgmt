@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import type { AuthenticatedUser } from './auth.types';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthService } from './auth.service';
 
@@ -20,6 +22,15 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @Req() req: Request & { user: AuthenticatedUser },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(req.user.id, dto);
+  }
+
   @Post('logout')
   logout() {
     return {
@@ -29,7 +40,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@Req() req: Request & { user: { id: number; username: string } }) {
+  me(@Req() req: Request & { user: AuthenticatedUser }) {
     return req.user;
   }
 }

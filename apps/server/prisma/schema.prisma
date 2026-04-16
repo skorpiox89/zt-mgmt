@@ -6,14 +6,31 @@ datasource db {
   provider = "mysql"
 }
 
-model AdminUser {
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
   id           Int      @id @default(autoincrement())
   username     String   @unique @db.VarChar(64)
   passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         UserRole @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  hiddenNetworks UserHiddenNetwork[]
 
   @@map("admin_users")
+}
+
+model UserHiddenNetwork {
+  userId       Int    @map("user_id")
+  controllerId Int    @map("controller_id")
+  networkId    String @map("network_id") @db.VarChar(32)
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, controllerId, networkId])
+  @@map("user_hidden_networks")
 }
 
 model Controller {

@@ -19,6 +19,12 @@
           </template>
           网络管理
         </a-menu-item>
+        <a-menu-item v-if="authStore.isAdmin" key="/users" @click="router.push('/users')">
+          <template #icon>
+            <TeamOutlined />
+          </template>
+          用户管理
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
@@ -28,7 +34,18 @@
           <div class="topbar-subtitle">在一个界面中集中管理控制器、网络和成员。</div>
         </div>
         <div class="topbar-actions">
-          <span class="topbar-user">{{ authStore.user?.username || 'admin' }}</span>
+          <span class="topbar-user">
+            {{ authStore.user?.username || '-' }}
+            <a-tag :color="authStore.isAdmin ? 'gold' : 'blue'">
+              {{ authStore.isAdmin ? '管理员' : '用户' }}
+            </a-tag>
+          </span>
+          <a-button type="text" @click="passwordOpen = true">
+            <template #icon>
+              <KeyOutlined />
+            </template>
+            修改密码
+          </a-button>
           <a-button type="text" @click="handleLogout">
             <template #icon>
               <LogoutOutlined />
@@ -42,30 +59,97 @@
       </a-layout-content>
     </a-layout>
   </a-layout>
+
+  <a-modal
+    v-model:open="passwordOpen"
+    :confirm-loading="changingPassword"
+    title="修改密码"
+    @ok="handleChangePassword"
+  >
+    <a-form layout="vertical">
+      <a-form-item label="当前密码">
+        <a-input-password v-model:value="passwordForm.oldPassword" />
+      </a-form-item>
+      <a-form-item label="新密码">
+        <a-input-password v-model:value="passwordForm.newPassword" />
+      </a-form-item>
+      <a-form-item label="确认新密码">
+        <a-input-password v-model:value="passwordForm.confirmPassword" />
+      </a-form-item>
+    </a-form>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
 import {
   CloudServerOutlined,
   DatabaseOutlined,
+  KeyOutlined,
   LogoutOutlined,
+  TeamOutlined,
 } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
-import { computed } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
-import { logout } from '../api/auth';
+import { changePassword, logout } from '../api/auth';
 import { useAuthStore } from '../stores/auth';
+import { useNetworkVisibilityStore } from '../stores/network-visibility';
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const visibilityStore = useNetworkVisibilityStore();
+const changingPassword = ref(false);
+const passwordOpen = ref(false);
+const passwordForm = reactive({
+  confirmPassword: '',
+  newPassword: '',
+  oldPassword: '',
+});
 
 const selectedKeys = computed(() => {
+  if (route.path.startsWith('/users')) {
+    return ['/users'];
+  }
   if (route.path.startsWith('/networks')) {
     return ['/networks'];
   }
   return ['/controllers'];
 });
+
+function resetPasswordForm() {
+  passwordForm.confirmPassword = '';
+  passwordForm.newPassword = '';
+  passwordForm.oldPassword = '';
+}
+
+async function handleChangePassword() {
+  if (!passwordForm.oldPassword || !passwordForm.newPassword) {
+    message.warning('请填写完整密码信息');
+    return;
+  }
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    message.warning('两次输入的新密码不一致');
+    return;
+  }
+
+  changingPassword.value = true;
+  try {
+    const result = await changePassword({
+      newPassword: passwordForm.newPassword,
+      oldPassword: passwordForm.oldPassword,
+    });
+    authStore.setSession(result.token, result.user);
+    passwordOpen.value = false;
+    resetPasswordForm();
+    message.success('密码修改成功');
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '修改密码失败');
+  } finally {
+    changingPassword.value = false;
+  }
+}
 
 async function handleLogout() {
   try {
@@ -73,11 +157,16 @@ async function handleLogout() {
   } catch {
     // Ignore server logout failures for local session cleanup.
   } finally {
+    visibilityStore.clear();
     authStore.clearSession();
     message.success('已退出登录');
     void router.push('/login');
   }
 }
+
+onMounted(() => {
+  void visibilityStore.ensureLoaded().catch(() => undefined);
+});
 </script>
 
 <style scoped>
@@ -141,6 +230,9 @@ async function handleLogout() {
 
 .topbar-user {
   color: #334155;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
   font-weight: 600;
 }
 
