@@ -1,0 +1,39 @@
+# Local reverse proxy for zt-mgmt.
+#
+# Add the domains to your host resolver first:
+# 127.0.0.1 zt-mgmt.dev api.zt-mgmt.dev
+#
+# .dev is HTTPS-only in modern browsers. "tls internal" uses Caddy's
+# local CA, so run "caddy trust" once on the machine that opens the site.
+#
+# Optional upstream overrides:
+# ZT_MGMT_WEB_UPSTREAM=127.0.0.1:4173
+# ZT_MGMT_API_UPSTREAM=127.0.0.1:3001
+
+(zt_mgmt_tls) {
+	tls internal
+}
+
+(zt_mgmt_api_proxy) {
+	reverse_proxy {$ZT_MGMT_API_UPSTREAM:127.0.0.1:3001}
+}
+
+zt-mgmt.dev {
+	import zt_mgmt_tls
+
+	@api path /api /api/*
+	handle @api {
+		import zt_mgmt_api_proxy
+	}
+
+	handle {
+		reverse_proxy {$ZT_MGMT_WEB_UPSTREAM:127.0.0.1:4173} {
+			header_up Host {upstream_hostport}
+		}
+	}
+}
+
+api.zt-mgmt.dev {
+	import zt_mgmt_tls
+	import zt_mgmt_api_proxy
+}

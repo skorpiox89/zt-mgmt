@@ -105,6 +105,15 @@ docker compose up -d --build
 - API：`http://127.0.0.1:3001/api/health`
 - MySQL：`127.0.0.1:3307`
 
+### 本地 Caddy 域名
+
+仓库根目录提供了 `Caddyfile`，用于本地 HTTPS 反代：
+
+- `https://zt-mgmt.dev` -> 前端
+- `https://api.zt-mgmt.dev` -> 后端
+
+`.dev` 域名在浏览器中强制 HTTPS，首次使用需执行 `sudo caddy trust` 并将 `zt-mgmt.dev`、`api.zt-mgmt.dev` 指向 `127.0.0.1`。详细步骤见 `docs/local-caddy.md`。
+
 ## 关键环境变量
 
 ```env

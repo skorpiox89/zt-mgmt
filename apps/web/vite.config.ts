@@ -21,9 +21,12 @@ function resolveApiProxyTarget() {
   return `http://${backendHost}:${backendPort}`;
 }
 
+const localCaddyHosts = ['zt-mgmt.dev'];
+
 export default defineConfig({
   plugins: [vue()],
   server: {
+    allowedHosts: localCaddyHosts,
     host: '0.0.0.0',
     port: 4173,
     proxy: {
@@ -34,6 +37,7 @@ export default defineConfig({
     },
   },
   preview: {
+    allowedHosts: localCaddyHosts,
     host: '0.0.0.0',
     port: 4173,
     proxy: {
