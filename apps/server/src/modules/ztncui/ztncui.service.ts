@@ -24,6 +24,17 @@ interface ZtncuiResponse {
 
 class ZtncuiRequestTimeoutError extends Error {}
 
+const DEFAULT_ZTNCUI_REQUEST_TIMEOUT_MS = 10_000;
+const MEMBER_NAME_UPDATE_TIMEOUT_MS = 8_000;
+const MEMBER_NAME_UPDATE_RETRY_COUNT = 3;
+const MEMBER_NAME_VERIFY_TIMEOUT_MS = 5_000;
+const MEMBER_NAME_VERIFY_RETRY_COUNT = 3;
+const MEMBER_NAME_VERIFY_INTERVAL_MS = 1_000;
+
+function containsNonAscii(value: string) {
+  return /[^\x00-\x7F]/.test(value);
+}
+
 @Injectable()
 export class ZtncuiService {
   constructor(private readonly sessionService: ZtncuiSessionService) {}
@@ -56,10 +67,15 @@ export class ZtncuiService {
     return parseNetworkList(response.body);
   }
 
-  async getNetworkDetail(controller: ControllerConfig, networkId: string) {
+  async getNetworkDetail(
+    controller: ControllerConfig,
+    networkId: string,
+    options: { timeoutMs?: number } = {},
+  ) {
     const response = await this.request(controller, {
       method: 'GET',
       path: `/controller/network/${networkId}`,
+      timeoutMs: options.timeoutMs,
     });
 
     return parseNetworkDetail(response.body);
@@ -142,6 +158,7 @@ export class ZtncuiService {
     networkId: string,
     memberId: string,
     authorized: boolean,
+    options: { timeoutMs?: number } = {},
   ) {
     await this.request(controller, {
       form: {
@@ -150,6 +167,7 @@ export class ZtncuiService {
       },
       method: 'POST',
       path: `/controller/network/${networkId}/members`,
+      timeoutMs: options.timeoutMs,
     });
   }
 
@@ -159,29 +177,61 @@ export class ZtncuiService {
     memberId: string,
     memberName: string,
   ) {
-    try {
-      await this.request(controller, {
-        form: {
-          id: memberId,
-          name: memberName,
-        },
-        method: 'POST',
-        path: `/controller/network/${networkId}/members`,
-        timeoutMs: 3000,
-      });
-    } catch (error) {
-      if (error instanceof ZtncuiRequestTimeoutError) {
-        return {
-          requestTimedOut: true,
-        };
-      }
+    const directResult = await this.trySetMemberName(
+      controller,
+      networkId,
+      memberId,
+      memberName,
+    );
+    if (directResult.confirmed || !containsNonAscii(memberName)) {
+      return directResult;
+    }
 
-      throw error;
+    const asciiBridgeName = `zt-${memberId}`;
+    const bridgeResult = await this.trySetMemberName(
+      controller,
+      networkId,
+      memberId,
+      asciiBridgeName,
+    );
+    if (!bridgeResult.confirmed) {
+      return {
+        confirmed: false,
+        requestTimedOut: directResult.requestTimedOut || bridgeResult.requestTimedOut,
+      };
+    }
+
+    const finalResult = await this.trySetMemberName(
+      controller,
+      networkId,
+      memberId,
+      memberName,
+    );
+    if (finalResult.confirmed) {
+      return finalResult;
     }
 
     return {
-      requestTimedOut: false,
+      confirmed: false,
+      requestTimedOut:
+        directResult.requestTimedOut ||
+        bridgeResult.requestTimedOut ||
+        finalResult.requestTimedOut,
     };
+  }
+
+  async verifyMemberName(
+    controller: ControllerConfig,
+    networkId: string,
+    memberId: string,
+    memberName: string,
+  ) {
+    return this.verifyMemberNameApplied(
+      controller,
+      networkId,
+      memberId,
+      memberName,
+    );
   }
 
   async deleteMember(controller: ControllerConfig, networkId: string, memberId: string) {
@@ -288,19 +338,19 @@ export class ZtncuiService {
   ): Promise<ZtncuiResponse> {
     const headers = new Headers();
     let body: string | undefined;
-    const abortController = options.timeoutMs ? new AbortController() : null;
-    const timeoutId = abortController
-      ? setTimeout(() => {
-          abortController.abort();
-        }, options.timeoutMs)
-      : null;
+    const timeoutMs = options.timeoutMs ?? DEFAULT_ZTNCUI_REQUEST_TIMEOUT_MS;
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, timeoutMs);
 
     if (options.cookieHeader) {
       headers.set('Cookie', options.cookieHeader);
     }
 
     if (options.form) {
-      headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      headers.set('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+      headers.set('X-Requested-With', 'XMLHttpRequest');
       body = new URLSearchParams(options.form).toString();
     }
 
@@ -310,7 +360,7 @@ export class ZtncuiService {
         headers,
         method: options.method,
         redirect: 'manual',
-        signal: abortController?.signal,
+        signal: abortController.signal,
       });
 
       return {
@@ -325,13 +375,97 @@ export class ZtncuiService {
 
       throw error;
     } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
     }
   }
 
   private buildUrl(baseUrl: string, path: string) {
     return `${baseUrl.replace(/\/$/, '')}${path}`;
+  }
+
+  private async verifyMemberNameApplied(
+    controller: ControllerConfig,
+    networkId: string,
+    memberId: string,
+    memberName: string,
+  ) {
+    for (let attempt = 1; attempt <= MEMBER_NAME_VERIFY_RETRY_COUNT; attempt += 1) {
+      try {
+        this.clearSession(controller.id);
+        const detail = await this.getNetworkDetail(controller, networkId, {
+          timeoutMs: MEMBER_NAME_VERIFY_TIMEOUT_MS,
+        });
+        const member = detail.members.find((item) => item.memberId === memberId);
+        if (member?.memberName === memberName) {
+          return true;
+        }
+      } catch {
+        // Ignore transient verification failures and retry.
+      }
+
+      if (attempt < MEMBER_NAME_VERIFY_RETRY_COUNT) {
+        await this.sleep(MEMBER_NAME_VERIFY_INTERVAL_MS);
+      }
+    }
+
+    return false;
+  }
+
+  private async trySetMemberName(
+    controller: ControllerConfig,
+    networkId: string,
+    memberId: string,
+    memberName: string,
+  ) {
+    let lastRequestTimedOut = false;
+
+    for (let attempt = 1; attempt <= MEMBER_NAME_UPDATE_RETRY_COUNT; attempt += 1) {
+      try {
+        this.clearSession(controller.id);
+        await this.request(controller, {
+          form: {
+            id: memberId,
+            name: memberName,
+          },
+          method: 'POST',
+          path: `/controller/network/${networkId}/members`,
+          timeoutMs: MEMBER_NAME_UPDATE_TIMEOUT_MS,
+        });
+        lastRequestTimedOut = false;
+      } catch (error) {
+        if (!(error instanceof ZtncuiRequestTimeoutError)) {
+          throw error;
+        }
+        lastRequestTimedOut = true;
+      }
+
+      const verified = await this.verifyMemberNameApplied(
+        controller,
+        networkId,
+        memberId,
+        memberName,
+      );
+      if (verified) {
+        return {
+          confirmed: true,
+          requestTimedOut: false,
+        };
+      }
+
+      if (attempt < MEMBER_NAME_UPDATE_RETRY_COUNT) {
+        await this.sleep(MEMBER_NAME_VERIFY_INTERVAL_MS);
+      }
+    }
+
+    return {
+      confirmed: false,
+      requestTimedOut: lastRequestTimedOut,
+    };
+  }
+
+  private async sleep(ms: number) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 }

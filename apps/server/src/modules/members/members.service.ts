@@ -51,6 +51,7 @@ export class MembersService {
 
     return {
       accepted: true,
+      confirmed: result.confirmed,
       controllerId,
       memberId,
       memberName,

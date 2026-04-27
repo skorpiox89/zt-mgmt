@@ -21,6 +21,7 @@ export interface TestMachineDto {
   host: string;
   id: number;
   lastCheckedAt: string | null;
+  lastZeroTierCheckedAt: string | null;
   lastSwitchAt: string | null;
   lastSwitchMessage: string | null;
   name: string;
@@ -29,9 +30,16 @@ export interface TestMachineDto {
   status: 'offline' | 'online' | 'unknown';
   switchStatus: 'failed' | 'idle' | 'running' | 'success';
   username: string | null;
+  zerotierServiceStatus: 'not_installed' | 'running' | 'stopped' | 'unknown';
 }
 
 export interface TestMachineSshTestResult {
+  checkedAt: string;
+  success: boolean;
+}
+
+export interface TestMachineZeroTierServiceResult {
+  checkedAt: string;
   currentNetworks: Array<{
     name: string | null;
     networkId: string;
@@ -39,6 +47,7 @@ export interface TestMachineSshTestResult {
   }>;
   nodeId: string | null;
   success: boolean;
+  serviceStatus: 'not_installed' | 'running' | 'stopped' | 'unknown';
   version: string | null;
 }
 
@@ -46,6 +55,7 @@ export interface TestMachineSwitchResult {
   controllerId: number;
   currentNodeId: string;
   machineId: number;
+  message: string;
   memberId: string;
   networkId: string;
   networkName: string;

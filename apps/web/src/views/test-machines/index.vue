@@ -35,6 +35,15 @@
             </a-space>
           </template>
 
+          <template v-else-if="column.key === 'zerotierServiceStatus'">
+            <a-space direction="vertical" :size="4">
+              <a-tag :color="zerotierStatusColor(record.zerotierServiceStatus)">
+                {{ zerotierStatusText(record.zerotierServiceStatus) }}
+              </a-tag>
+              <span class="cell-subtext">{{ formatDate(record.lastZeroTierCheckedAt) }}</span>
+            </a-space>
+          </template>
+
           <template v-else-if="column.key === 'currentNetwork'">
             <div v-if="record.currentNetworkMasked">
               <a-tag color="default">已屏蔽</a-tag>
@@ -87,6 +96,33 @@
                 >
                   测试 SSH
                 </a-button>
+                <a-dropdown :trigger="['click']">
+                  <a-button
+                    size="small"
+                    :disabled="record.switchStatus === 'running'"
+                    :loading="isZeroTierActionLoading(record.id)"
+                  >
+                    ZeroTier
+                    <DownOutlined />
+                  </a-button>
+                  <template #overlay>
+                    <a-menu @click="handleZeroTierMenuClick(record, $event)">
+                      <a-menu-item key="check">检查</a-menu-item>
+                      <a-menu-item
+                        key="start"
+                        :disabled="record.zerotierServiceStatus !== 'stopped'"
+                      >
+                        开启
+                      </a-menu-item>
+                      <a-menu-item
+                        key="stop"
+                        :disabled="record.zerotierServiceStatus !== 'running'"
+                      >
+                        关闭
+                      </a-menu-item>
+                    </a-menu>
+                  </template>
+                </a-dropdown>
                 <a-button size="small" @click="openLogsModal(record)">查看日志</a-button>
                 <a-button danger size="small" @click="handleDelete(record.id)">删除</a-button>
               </template>
@@ -228,15 +264,19 @@
 </template>
 
 <script setup lang="ts">
+import { DownOutlined } from '@ant-design/icons-vue';
 import { Modal, message } from 'ant-design-vue';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { getControllers } from '../../api/controllers';
 import { getNetworks } from '../../api/networks';
 import {
+  checkTestMachineZeroTier,
   createTestMachine,
   deleteTestMachine,
   getTestMachineLogs,
   getTestMachines,
+  startTestMachineZeroTier,
+  stopTestMachineZeroTier,
   switchTestMachineNetwork,
   testTestMachineSsh,
   updateTestMachine,
@@ -262,6 +302,9 @@ const logsOpen = ref(false);
 const editingId = ref<number | null>(null);
 const switchingId = ref<number | null>(null);
 const sshTestingId = ref<number | null>(null);
+const zerotierCheckingId = ref<number | null>(null);
+const zerotierActionId = ref<number | null>(null);
+const zerotierActionType = ref<'start' | 'stop' | null>(null);
 const machines = ref<TestMachineItem[]>([]);
 const controllers = ref<ControllerItem[]>([]);
 const switchNetworks = ref<NetworkItem[]>([]);
@@ -291,6 +334,7 @@ const columns = computed(() => {
     { dataIndex: 'host', key: 'host', title: '管理地址' },
     { key: 'currentNetwork', title: '当前测试网络' },
     { key: 'status', title: '主机状态' },
+    { key: 'zerotierServiceStatus', title: 'ZeroTier 服务' },
     { key: 'switchStatus', title: '最近切换结果' },
     { dataIndex: 'lastCheckedAt', key: 'lastCheckedAt', title: '最近 SSH 检测' },
     { dataIndex: 'lastSwitchAt', key: 'lastSwitchAt', title: '最近切换时间' },
@@ -356,6 +400,36 @@ function machineStatusText(status: TestMachineItem['status']) {
     return '离线';
   }
   return '未知';
+}
+
+function zerotierStatusColor(status: TestMachineItem['zerotierServiceStatus']) {
+  if (status === 'running') {
+    return 'green';
+  }
+  if (status === 'stopped') {
+    return 'orange';
+  }
+  if (status === 'not_installed') {
+    return 'red';
+  }
+  return 'default';
+}
+
+function zerotierStatusText(status: TestMachineItem['zerotierServiceStatus']) {
+  if (status === 'running') {
+    return '运行中';
+  }
+  if (status === 'stopped') {
+    return '已停止';
+  }
+  if (status === 'not_installed') {
+    return '未安装';
+  }
+  return '未知';
+}
+
+function isZeroTierActionLoading(id: number) {
+  return zerotierCheckingId.value === id || zerotierActionId.value === id;
 }
 
 function switchStatusColor(status: TestMachineItem['switchStatus']) {
@@ -541,7 +615,7 @@ async function handleSwitchNetwork() {
       controllerId: switchForm.controllerId,
       networkId: switchForm.networkId,
     });
-    message.success(`切换成功：${result.networkName}`);
+    message.success(result.message || `切换成功：${result.networkName}`);
     switchOpen.value = false;
     switchTarget.value = null;
     await loadData();
@@ -555,23 +629,62 @@ async function handleSwitchNetwork() {
 async function handleTestSsh(record: TestMachineItem) {
   sshTestingId.value = record.id;
   try {
-    const result = await testTestMachineSsh(record.id);
-    const networksText =
-      result.currentNetworks.length > 0
-        ? result.currentNetworks
-            .map((item) => `${item.name || '-'} (${item.networkId}) · ${item.status || '-'}`)
-            .join('\n')
-        : '当前没有已加入的网络';
-
-    Modal.info({
-      content: `节点 ID：${result.nodeId || '-'}\n版本：${result.version || '-'}\n\n${networksText}`,
-      title: `SSH 检测成功 · ${record.name}`,
-    });
+    await testTestMachineSsh(record.id);
+    message.success(`SSH 登录成功：${record.name}`);
     await loadData();
   } catch (error) {
     message.error(error instanceof Error ? error.message : 'SSH 检测失败');
   } finally {
     sshTestingId.value = null;
+  }
+}
+
+async function handleCheckZeroTier(record: TestMachineItem) {
+  zerotierCheckingId.value = record.id;
+  try {
+    const result = await checkTestMachineZeroTier(record.id);
+    message.success(`ZeroTier 状态：${zerotierStatusText(result.serviceStatus)}`);
+    await loadData();
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : 'ZeroTier 状态检查失败');
+  } finally {
+    zerotierCheckingId.value = null;
+  }
+}
+
+async function handleToggleZeroTier(record: TestMachineItem, action: 'start' | 'stop') {
+  zerotierActionId.value = record.id;
+  zerotierActionType.value = action;
+  try {
+    const result =
+      action === 'start'
+        ? await startTestMachineZeroTier(record.id)
+        : await stopTestMachineZeroTier(record.id);
+    message.success(`ZeroTier 状态：${zerotierStatusText(result.serviceStatus)}`);
+    await loadData();
+  } catch (error) {
+    message.error(
+      error instanceof Error
+        ? error.message
+        : `ZeroTier ${action === 'start' ? '开启' : '关闭'}失败`,
+    );
+  } finally {
+    zerotierActionId.value = null;
+    zerotierActionType.value = null;
+  }
+}
+
+function handleZeroTierMenuClick(
+  record: TestMachineItem,
+  event: { key: 'check' | 'start' | 'stop' | string },
+) {
+  if (event.key === 'check') {
+    void handleCheckZeroTier(record);
+    return;
+  }
+
+  if (event.key === 'start' || event.key === 'stop') {
+    void handleToggleZeroTier(record, event.key);
   }
 }
 

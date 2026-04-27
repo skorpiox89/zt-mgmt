@@ -13,6 +13,7 @@ export interface MemberItem {
 
 export interface UpdateMemberNameResult {
   accepted: boolean;
+  confirmed: boolean;
   controllerId: number;
   memberId: string;
   memberName: string;

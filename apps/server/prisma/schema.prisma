@@ -24,15 +24,22 @@ enum TestMachineSwitchStatus {
   FAILED
 }
 
+enum ZeroTierServiceStatus {
+  UNKNOWN
+  NOT_INSTALLED
+  RUNNING
+  STOPPED
+}
+
 model User {
-  id           Int                   @id @default(autoincrement())
-  username     String                @unique @db.VarChar(64)
-  passwordHash String                @map("password_hash") @db.VarChar(255)
-  role         UserRole              @default(USER)
-  createdAt    DateTime              @default(now()) @map("created_at")
-  updatedAt    DateTime              @updatedAt @map("updated_at")
+  id             Int                    @id @default(autoincrement())
+  username       String                 @unique @db.VarChar(64)
+  passwordHash   String                 @map("password_hash") @db.VarChar(255)
+  role           UserRole               @default(USER)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
   hiddenNetworks UserHiddenNetwork[]
-  switchLogs   TestMachineSwitchLog[]
+  switchLogs     TestMachineSwitchLog[]
 
   @@map("admin_users")
 }
@@ -55,7 +62,7 @@ model Controller {
   username             String    @db.VarChar(100)
   passwordEnc          String    @map("password_enc") @db.Text
   subnetPoolCidr       String    @map("subnet_pool_cidr") @db.VarChar(32)
-  subnetPrefix         Int       @map("subnet_prefix") @default(24)
+  subnetPrefix         Int       @default(24) @map("subnet_prefix")
   planetFileContent    Bytes?    @map("planet_file_content") @db.MediumBlob
   planetFileSize       Int?      @map("planet_file_size")
   planetFileUploadedAt DateTime? @map("planet_file_uploaded_at")
@@ -68,27 +75,29 @@ model Controller {
 }
 
 model TestMachine {
-  id               Int                     @id @default(autoincrement())
-  name             String                  @unique @db.VarChar(100)
-  host             String                  @db.VarChar(255)
-  port             Int                     @default(22)
-  username         String                  @db.VarChar(100)
-  passwordEnc      String                  @map("password_enc") @db.Text
-  remark           String?                 @db.VarChar(255)
-  enabled          Boolean                 @default(true)
-  status           TestMachineStatus       @default(UNKNOWN)
-  lastCheckedAt    DateTime?               @map("last_checked_at")
-  switchStatus     TestMachineSwitchStatus @default(IDLE) @map("switch_status")
-  lastSwitchAt     DateTime?               @map("last_switch_at")
-  lastSwitchMessage String?                @map("last_switch_message") @db.VarChar(255)
-  currentControllerId Int?                 @map("current_controller_id")
-  currentNetworkId String?                 @map("current_network_id") @db.VarChar(32)
-  currentNetworkName String?               @map("current_network_name") @db.VarChar(120)
-  currentNodeId    String?                 @map("current_node_id") @db.VarChar(32)
-  currentMemberId  String?                 @map("current_member_id") @db.VarChar(32)
-  createdAt        DateTime                @default(now()) @map("created_at")
-  updatedAt        DateTime                @updatedAt @map("updated_at")
-  switchLogs       TestMachineSwitchLog[]
+  id                    Int                     @id @default(autoincrement())
+  name                  String                  @unique @db.VarChar(100)
+  host                  String                  @db.VarChar(255)
+  port                  Int                     @default(22)
+  username              String                  @db.VarChar(100)
+  passwordEnc           String                  @map("password_enc") @db.Text
+  remark                String?                 @db.VarChar(255)
+  enabled               Boolean                 @default(true)
+  status                TestMachineStatus       @default(UNKNOWN)
+  lastCheckedAt         DateTime?               @map("last_checked_at")
+  zerotierServiceStatus ZeroTierServiceStatus   @default(UNKNOWN) @map("zerotier_service_status")
+  lastZeroTierCheckedAt DateTime?               @map("last_zerotier_checked_at")
+  switchStatus          TestMachineSwitchStatus @default(IDLE) @map("switch_status")
+  lastSwitchAt          DateTime?               @map("last_switch_at")
+  lastSwitchMessage     String?                 @map("last_switch_message") @db.VarChar(255)
+  currentControllerId   Int?                    @map("current_controller_id")
+  currentNetworkId      String?                 @map("current_network_id") @db.VarChar(32)
+  currentNetworkName    String?                 @map("current_network_name") @db.VarChar(120)
+  currentNodeId         String?                 @map("current_node_id") @db.VarChar(32)
+  currentMemberId       String?                 @map("current_member_id") @db.VarChar(32)
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  switchLogs            TestMachineSwitchLog[]
 
   @@map("test_machines")
 }

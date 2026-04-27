@@ -5,6 +5,7 @@ import type {
   TestMachineFormPayload,
   TestMachineItem,
   TestMachineSshTestResult,
+  TestMachineZeroTierServiceResult,
   TestMachineSwitchLogItem,
 } from '../types/test-machine';
 
@@ -34,6 +35,24 @@ export function deleteTestMachine(id: number) {
 
 export function testTestMachineSsh(id: number) {
   return request<TestMachineSshTestResult>(`/test-machines/${id}/test-ssh`, {
+    method: 'POST',
+  });
+}
+
+export function checkTestMachineZeroTier(id: number) {
+  return request<TestMachineZeroTierServiceResult>(`/test-machines/${id}/zerotier/status`, {
+    method: 'POST',
+  });
+}
+
+export function startTestMachineZeroTier(id: number) {
+  return request<TestMachineZeroTierServiceResult>(`/test-machines/${id}/zerotier/start`, {
+    method: 'POST',
+  });
+}
+
+export function stopTestMachineZeroTier(id: number) {
+  return request<TestMachineZeroTierServiceResult>(`/test-machines/${id}/zerotier/stop`, {
     method: 'POST',
   });
 }

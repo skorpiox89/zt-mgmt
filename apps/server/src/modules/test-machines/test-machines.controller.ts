@@ -57,6 +57,24 @@ export class TestMachinesController {
     return this.testMachinesService.testSsh(id);
   }
 
+  @Post(':id/zerotier/status')
+  @UseGuards(AdminGuard)
+  checkZeroTierStatus(@Param('id', ParseIntPipe) id: number) {
+    return this.testMachinesService.checkZeroTierStatus(id);
+  }
+
+  @Post(':id/zerotier/start')
+  @UseGuards(AdminGuard)
+  startZeroTier(@Param('id', ParseIntPipe) id: number) {
+    return this.testMachinesService.startZeroTier(id);
+  }
+
+  @Post(':id/zerotier/stop')
+  @UseGuards(AdminGuard)
+  stopZeroTier(@Param('id', ParseIntPipe) id: number) {
+    return this.testMachinesService.stopZeroTier(id);
+  }
+
   @Post(':id/switch')
   switchNetwork(
     @Req() req: Request & { user: AuthenticatedUser },

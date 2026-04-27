@@ -5,6 +5,7 @@ import type { TestMachineConfig } from './test-machines.types';
 interface ExecOptions {
   allowNonZeroExit?: boolean;
   timeoutMs?: number;
+  usePrivilege?: boolean;
 }
 
 export interface ExecResult {
@@ -66,7 +67,8 @@ export class TestMachineRemoteSession {
   ) {}
 
   async exec(command: string, options: ExecOptions = {}) {
-    const wrappedCommand = `bash -lc ${quoteShellArg(`${this.privilegedPrefix}${command}`)}`;
+    const prefix = options.usePrivilege === false ? '' : this.privilegedPrefix;
+    const wrappedCommand = `bash -lc ${quoteShellArg(`${prefix}${command}`)}`;
     const timeoutMs = options.timeoutMs ?? 30_000;
 
     return new Promise<ExecResult>((resolve, reject) => {
