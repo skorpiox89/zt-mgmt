@@ -11,14 +11,28 @@ enum UserRole {
   USER
 }
 
+enum TestMachineStatus {
+  UNKNOWN
+  ONLINE
+  OFFLINE
+}
+
+enum TestMachineSwitchStatus {
+  IDLE
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 model User {
-  id           Int      @id @default(autoincrement())
-  username     String   @unique @db.VarChar(64)
-  passwordHash String   @map("password_hash") @db.VarChar(255)
-  role         UserRole @default(USER)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           Int                   @id @default(autoincrement())
+  username     String                @unique @db.VarChar(64)
+  passwordHash String                @map("password_hash") @db.VarChar(255)
+  role         UserRole              @default(USER)
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
   hiddenNetworks UserHiddenNetwork[]
+  switchLogs   TestMachineSwitchLog[]
 
   @@map("admin_users")
 }
@@ -51,4 +65,51 @@ model Controller {
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   @@map("controllers")
+}
+
+model TestMachine {
+  id               Int                     @id @default(autoincrement())
+  name             String                  @unique @db.VarChar(100)
+  host             String                  @db.VarChar(255)
+  port             Int                     @default(22)
+  username         String                  @db.VarChar(100)
+  passwordEnc      String                  @map("password_enc") @db.Text
+  remark           String?                 @db.VarChar(255)
+  enabled          Boolean                 @default(true)
+  status           TestMachineStatus       @default(UNKNOWN)
+  lastCheckedAt    DateTime?               @map("last_checked_at")
+  switchStatus     TestMachineSwitchStatus @default(IDLE) @map("switch_status")
+  lastSwitchAt     DateTime?               @map("last_switch_at")
+  lastSwitchMessage String?                @map("last_switch_message") @db.VarChar(255)
+  currentControllerId Int?                 @map("current_controller_id")
+  currentNetworkId String?                 @map("current_network_id") @db.VarChar(32)
+  currentNetworkName String?               @map("current_network_name") @db.VarChar(120)
+  currentNodeId    String?                 @map("current_node_id") @db.VarChar(32)
+  currentMemberId  String?                 @map("current_member_id") @db.VarChar(32)
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  switchLogs       TestMachineSwitchLog[]
+
+  @@map("test_machines")
+}
+
+model TestMachineSwitchLog {
+  id                 Int                     @id @default(autoincrement())
+  machineId          Int                     @map("machine_id")
+  operatorUserId     Int                     @map("operator_user_id")
+  targetControllerId Int                     @map("target_controller_id")
+  targetNetworkId    String                  @map("target_network_id") @db.VarChar(32)
+  targetNetworkName  String?                 @map("target_network_name") @db.VarChar(120)
+  nodeId             String?                 @map("node_id") @db.VarChar(32)
+  memberId           String?                 @map("member_id") @db.VarChar(32)
+  status             TestMachineSwitchStatus
+  startedAt          DateTime                @default(now()) @map("started_at")
+  finishedAt         DateTime?               @map("finished_at")
+  summary            String?                 @db.VarChar(255)
+  detailLog          String?                 @map("detail_log") @db.LongText
+  machine            TestMachine             @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  operatorUser       User                    @relation(fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([machineId, startedAt])
+  @@map("test_machine_switch_logs")
 }

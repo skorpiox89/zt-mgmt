@@ -254,6 +254,31 @@ export class UsersService implements OnApplicationBootstrap {
     return normalizedItems;
   }
 
+  async getHiddenNetworkKeySet(userId: number, role: UserRole) {
+    if (role === UserRole.ADMIN) {
+      return new Set<string>();
+    }
+
+    const items = await this.listHiddenNetworks(userId);
+    return new Set(items.map((item) => `${item.controllerId}:${item.networkId}`));
+  }
+
+  async assertNetworkVisibleForUser(
+    userId: number,
+    role: UserRole,
+    controllerId: number,
+    networkId: string,
+  ) {
+    if (role === UserRole.ADMIN) {
+      return;
+    }
+
+    const hiddenNetworkKeys = await this.getHiddenNetworkKeySet(userId, role);
+    if (hiddenNetworkKeys.has(`${controllerId}:${networkId}`)) {
+      throw new ConflictException('目标网络已被管理员屏蔽，当前账号不能切换到该网络');
+    }
+  }
+
   private async ensureDefaultAdmin() {
     const adminUser = await this.prisma.user.findFirst({
       select: {

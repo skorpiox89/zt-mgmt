@@ -6,6 +6,7 @@ import { ControllersModule } from './modules/controllers/controllers.module';
 import { HealthModule } from './modules/health/health.module';
 import { MembersModule } from './modules/members/members.module';
 import { NetworksModule } from './modules/networks/networks.module';
+import { TestMachinesModule } from './modules/test-machines/test-machines.module';
 import { UsersModule } from './modules/users/users.module';
 import { ZtncuiModule } from './modules/ztncui/ztncui.module';
 
@@ -21,6 +22,7 @@ import { ZtncuiModule } from './modules/ztncui/ztncui.module';
     ControllersModule,
     NetworksModule,
     MembersModule,
+    TestMachinesModule,
     HealthModule,
   ],
 })

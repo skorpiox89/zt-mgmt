@@ -4,6 +4,7 @@ import LoginView from '../views/auth/login.vue';
 import ControllersView from '../views/controllers/index.vue';
 import NetworksView from '../views/networks/index.vue';
 import NetworkDetailView from '../views/networks/detail.vue';
+import TestMachinesView from '../views/test-machines/index.vue';
 import UsersView from '../views/users/index.vue';
 import AppLayout from '../layouts/AppLayout.vue';
 
@@ -37,6 +38,10 @@ const router = createRouter({
           path: 'networks/:controllerId/:networkId',
           component: NetworkDetailView,
           props: true,
+        },
+        {
+          path: 'test-machines',
+          component: TestMachinesView,
         },
         {
           path: 'users',

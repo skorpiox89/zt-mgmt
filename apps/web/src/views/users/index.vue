@@ -87,7 +87,7 @@
     >
       <a-space direction="vertical" style="width: 100%" :size="16">
         <div class="modal-copy">
-          隐藏仅作用于前端显示层。被隐藏的网络仍然存在，也不会阻止直接调用后端接口。
+          被隐藏的网络不会出现在普通用户的网络列表和网络测试切换选项中，后端也会阻止切换到这些网络。
         </div>
         <a-input
           v-model:value="hiddenKeyword"

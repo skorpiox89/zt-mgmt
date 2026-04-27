@@ -19,6 +19,12 @@
           </template>
           网络管理
         </a-menu-item>
+        <a-menu-item key="/test-machines" @click="router.push('/test-machines')">
+          <template #icon>
+            <ExperimentOutlined />
+          </template>
+          网络测试
+        </a-menu-item>
         <a-menu-item v-if="authStore.isAdmin" key="/users" @click="router.push('/users')">
           <template #icon>
             <TeamOutlined />
@@ -84,6 +90,7 @@
 import {
   CloudServerOutlined,
   DatabaseOutlined,
+  ExperimentOutlined,
   KeyOutlined,
   LogoutOutlined,
   TeamOutlined,
@@ -113,6 +120,9 @@ const selectedKeys = computed(() => {
   }
   if (route.path.startsWith('/networks')) {
     return ['/networks'];
+  }
+  if (route.path.startsWith('/test-machines')) {
+    return ['/test-machines'];
   }
   return ['/controllers'];
 });
