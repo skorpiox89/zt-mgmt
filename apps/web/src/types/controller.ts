@@ -1,8 +1,11 @@
 export interface ControllerItem {
   baseUrl: string;
+  hasPlanetFile: boolean;
   id: number;
   lastCheckedAt: string | null;
   name: string;
+  planetFileSize: number | null;
+  planetFileUploadedAt: string | null;
   region: string;
   status: 'offline' | 'online' | 'unknown';
   subnetPoolCidr: string;

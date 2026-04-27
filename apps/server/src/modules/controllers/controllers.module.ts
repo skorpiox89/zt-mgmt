@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminGuard } from '../../common/guards/admin.guard';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { ZtncuiModule } from '../ztncui/ztncui.module';
@@ -9,6 +10,6 @@ import { ControllersService } from './controllers.service';
   controllers: [ControllersController],
   exports: [ControllersService],
   imports: [AuthModule, PrismaModule, ZtncuiModule],
-  providers: [ControllersService],
+  providers: [AdminGuard, ControllersService],
 })
 export class ControllersModule {}
