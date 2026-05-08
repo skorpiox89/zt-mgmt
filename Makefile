@@ -3,8 +3,12 @@ SHELL := /bin/bash
 PNPM := pnpm
 ROOT_DIR := $(CURDIR)
 ENV_FILE := $(ROOT_DIR)/.env
+REGISTRY := registry.cn-hangzhou.aliyuncs.com/skorpiox89
+IMAGE_TAG ?= latest
+SERVER_IMAGE := $(REGISTRY)/zt-mgmt-server:$(IMAGE_TAG)
+WEB_IMAGE := $(REGISTRY)/zt-mgmt-web:$(IMAGE_TAG)
 
-.PHONY: help env install build lint server-build server-dev server-start web-build web-dev web-preview dev prisma-generate prisma-migrate clean redeploy
+.PHONY: help env install build lint server-build server-dev server-start web-build web-dev web-preview dev prisma-generate prisma-migrate image push clean redeploy
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -64,8 +68,18 @@ prisma-migrate: ## Run Prisma migrations for the server
 	@test -f "$(ENV_FILE)" || (echo "Missing .env. Run 'make env' first." && exit 1)
 	@set -a; source "$(ENV_FILE)"; set +a; $(PNPM) --filter @zt-mgmt/server prisma:migrate
 
+image: ## Build Docker images for server and web
+	docker build --target server-runtime -t $(SERVER_IMAGE) .
+	docker build --target web-runtime -t $(WEB_IMAGE) .
+
+push: image ## Build and push Docker images to the remote registry
+	docker push $(SERVER_IMAGE)
+	docker push $(WEB_IMAGE)
+
 clean: ## Remove build output
 	rm -rf apps/server/dist apps/web/dist
 
-redeploy:
-	docker compose down && docker compose up -d --build
+redeploy: ## Pull remote images and restart Docker Compose services
+	SERVER_IMAGE=$(SERVER_IMAGE) WEB_IMAGE=$(WEB_IMAGE) docker compose pull server web
+	SERVER_IMAGE=$(SERVER_IMAGE) WEB_IMAGE=$(WEB_IMAGE) docker compose down
+	SERVER_IMAGE=$(SERVER_IMAGE) WEB_IMAGE=$(WEB_IMAGE) docker compose up -d --no-build
