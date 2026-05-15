@@ -103,7 +103,7 @@ docker compose up -d --build
 
 - Web：`http://127.0.0.1:4173`
 - API：`http://127.0.0.1:3001/api/health`
-- MySQL：`127.0.0.1:3307`
+- MySQL：`127.0.0.1:19075`
 
 ### 本地 Caddy 域名
 
@@ -117,7 +117,7 @@ docker compose up -d --build
 ## 关键环境变量
 
 ```env
-DATABASE_URL=mysql://zt_mgmt:zt_mgmt@127.0.0.1:3306/zt_mgmt
+DATABASE_URL=mysql://zt_mgmt:zt_mgmt@127.0.0.1:19075/zt_mgmt
 JWT_SECRET=replace-this-with-a-long-random-string
 CONTROLLER_PASSWORD_KEY=replace-this-with-a-long-random-string
 VITE_API_BASE_URL=/api
