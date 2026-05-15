@@ -40,7 +40,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-replace-this-in-production}
       CONTROLLER_PASSWORD_KEY: ${CONTROLLER_PASSWORD_KEY:-replace-this-in-production}
     ports:
-      - "${SERVER_PORT:-3001}:3001"
+      - "${SERVER_PORT:-19070}:3001"
     healthcheck:
       test:
         [
@@ -69,7 +69,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://server:3001/api
     ports:
-      - "${WEB_PORT:-4173}:4173"
+      - "${WEB_PORT:-19071}:4173"
     healthcheck:
       test:
         [
