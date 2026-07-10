@@ -8,7 +8,19 @@
             维护 ztncui 控制器地址，以及用于自动创建网络的子网池配置。
           </p>
         </div>
-        <a-button type="primary" @click="openCreateModal">新增控制器</a-button>
+        <a-space class="toolbar-actions" wrap>
+          <template v-if="authStore.isAdmin">
+            <a-button :loading="exporting" @click="openExportModal">
+              <template #icon><ExportOutlined /></template>
+              导出控制器
+            </a-button>
+            <a-button :loading="importing" @click="openImportPicker">
+              <template #icon><ImportOutlined /></template>
+              导入控制器
+            </a-button>
+          </template>
+          <a-button type="primary" @click="openCreateModal">新增控制器</a-button>
+        </a-space>
       </div>
 
       <a-table
@@ -16,6 +28,7 @@
         :data-source="controllers"
         :loading="loading"
         row-key="id"
+        :scroll="{ x: 1120 }"
         size="middle"
       >
         <template #bodyCell="{ column, record }">
@@ -77,6 +90,14 @@
       type="file"
       @change="handlePlanetSelected"
     />
+    <input
+      ref="controllerImportInput"
+      accept=".json,application/json"
+      aria-label="选择控制器导入文件"
+      class="hidden-file-input"
+      type="file"
+      @change="handleControllerImportSelected"
+    />
 
     <a-modal
       v-model:open="modalOpen"
@@ -108,11 +129,72 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <a-modal
+      v-model:open="exportModalOpen"
+      :confirm-loading="exporting"
+      ok-text="导出"
+      title="导出控制器"
+      @cancel="resetExportModal"
+      @ok="handleExport"
+    >
+      <a-alert
+        description="迁移密码不会写入导出包；导入时必须输入相同密码。"
+        message="导出包包含控制器凭据与 planet 文件"
+        show-icon
+        type="warning"
+      />
+      <a-form layout="vertical">
+        <a-form-item label="迁移密码">
+          <a-input-password
+            v-model:value="exportForm.migrationPassword"
+            autocomplete="new-password"
+          />
+        </a-form-item>
+        <a-form-item label="确认迁移密码">
+          <a-input-password
+            v-model:value="exportForm.confirmMigrationPassword"
+            autocomplete="new-password"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="importModalOpen"
+      :confirm-loading="importing"
+      :ok-button-props="{ disabled: !importFile }"
+      ok-text="导入"
+      title="导入控制器"
+      @cancel="resetImportModal"
+      @ok="handleImport"
+    >
+      <a-alert
+        description="导入会新增文件中的全部控制器；存在同名控制器时会取消整次导入。"
+        message="请确认导入来源可信"
+        show-icon
+        type="warning"
+      />
+      <a-form layout="vertical">
+        <a-form-item label="配置文件">
+          <div class="import-file-selection">
+            <span class="import-file-name">{{ importFile?.name || '未选择文件' }}</span>
+            <a-button size="small" @click="openImportPicker">重新选择</a-button>
+          </div>
+        </a-form-item>
+        <a-form-item label="迁移密码">
+          <a-input-password
+            v-model:value="importMigrationPassword"
+            autocomplete="current-password"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { DownOutlined } from '@ant-design/icons-vue';
+import { DownOutlined, ExportOutlined, ImportOutlined } from '@ant-design/icons-vue';
 import { Modal, message } from 'ant-design-vue';
 import { onMounted, reactive, ref } from 'vue';
 import {
@@ -120,7 +202,9 @@ import {
   deleteControllerPlanet,
   deleteController,
   downloadControllerPlanet,
+  exportControllerConfiguration,
   getControllers,
+  importControllerConfiguration,
   testController,
   uploadControllerPlanet,
   updateController,
@@ -129,14 +213,23 @@ import { useAuthStore } from '../../stores/auth';
 import type { ControllerFormPayload, ControllerItem } from '../../types/controller';
 
 const MAX_PLANET_FILE_SIZE_BYTES = 1024 * 1024;
+const MAX_CONTROLLER_IMPORT_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const MIN_MIGRATION_PASSWORD_LENGTH = 12;
 
 const authStore = useAuthStore();
 const loading = ref(false);
 const saving = ref(false);
+const exporting = ref(false);
+const importing = ref(false);
 const modalOpen = ref(false);
+const exportModalOpen = ref(false);
+const importModalOpen = ref(false);
 const editingId = ref<number | null>(null);
 const controllers = ref<ControllerItem[]>([]);
 const planetInput = ref<HTMLInputElement | null>(null);
+const controllerImportInput = ref<HTMLInputElement | null>(null);
+const importFile = ref<File | null>(null);
+const importMigrationPassword = ref('');
 const pendingPlanetControllerId = ref<number | null>(null);
 const uploadingPlanetId = ref<number | null>(null);
 const downloadingPlanetId = ref<number | null>(null);
@@ -149,6 +242,10 @@ const form = reactive<ControllerFormPayload>({
   subnetPoolCidr: '10.10.0.0/16',
   subnetPrefix: 24,
   username: 'admin',
+});
+const exportForm = reactive({
+  confirmMigrationPassword: '',
+  migrationPassword: '',
 });
 
 const columns = [
@@ -176,6 +273,39 @@ function openCreateModal() {
   editingId.value = null;
   resetForm();
   modalOpen.value = true;
+}
+
+function openExportModal() {
+  exportForm.confirmMigrationPassword = '';
+  exportForm.migrationPassword = '';
+  exportModalOpen.value = true;
+}
+
+function resetExportModal() {
+  if (exporting.value) {
+    return;
+  }
+
+  exportForm.confirmMigrationPassword = '';
+  exportForm.migrationPassword = '';
+  exportModalOpen.value = false;
+}
+
+function openImportPicker() {
+  if (controllerImportInput.value) {
+    controllerImportInput.value.value = '';
+    controllerImportInput.value.click();
+  }
+}
+
+function resetImportModal() {
+  if (importing.value) {
+    return;
+  }
+
+  importFile.value = null;
+  importMigrationPassword.value = '';
+  importModalOpen.value = false;
 }
 
 function openEditModal(record: ControllerItem) {
@@ -220,6 +350,111 @@ function formatFileSize(size: number | null) {
   }
 
   return `${(size / 1024).toFixed(size >= 10 * 1024 ? 0 : 1)} KB`;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => {
+    window.URL.revokeObjectURL(downloadUrl);
+  }, 0);
+}
+
+function buildControllerExportFilename() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `zt-mgmt-controllers-${timestamp}.json`;
+}
+
+function handleControllerImportSelected(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+
+  if (!file) {
+    return;
+  }
+
+  const isJsonFile = file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
+  if (!isJsonFile) {
+    message.warning('请选择控制器导出生成的 JSON 文件');
+    return;
+  }
+
+  if (file.size === 0) {
+    message.warning('控制器导入文件不能为空');
+    return;
+  }
+
+  if (file.size > MAX_CONTROLLER_IMPORT_FILE_SIZE_BYTES) {
+    message.warning('控制器导入文件不能超过 50MB');
+    return;
+  }
+
+  importFile.value = file;
+  importMigrationPassword.value = '';
+  importModalOpen.value = true;
+}
+
+async function handleExport() {
+  if (exportForm.migrationPassword.length < MIN_MIGRATION_PASSWORD_LENGTH) {
+    message.warning('迁移密码至少需要 12 个字符');
+    return;
+  }
+
+  if (exportForm.migrationPassword !== exportForm.confirmMigrationPassword) {
+    message.warning('两次输入的迁移密码不一致');
+    return;
+  }
+
+  exporting.value = true;
+  try {
+    const blob = await exportControllerConfiguration(exportForm.migrationPassword);
+    downloadBlob(blob, buildControllerExportFilename());
+    message.success('控制器配置已导出');
+    exportForm.confirmMigrationPassword = '';
+    exportForm.migrationPassword = '';
+    exportModalOpen.value = false;
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '导出控制器失败');
+  } finally {
+    exporting.value = false;
+  }
+}
+
+async function handleImport() {
+  if (!importFile.value) {
+    message.warning('请选择控制器导入文件');
+    return;
+  }
+
+  if (importMigrationPassword.value.length < MIN_MIGRATION_PASSWORD_LENGTH) {
+    message.warning('迁移密码至少需要 12 个字符');
+    return;
+  }
+
+  importing.value = true;
+  try {
+    const result = await importControllerConfiguration(
+      importFile.value,
+      importMigrationPassword.value,
+    );
+    message.success(
+      result.imported ? `已导入 ${result.imported} 个控制器` : '导入包中没有控制器',
+    );
+    importFile.value = null;
+    importMigrationPassword.value = '';
+    importModalOpen.value = false;
+    await loadControllers();
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '导入控制器失败');
+  } finally {
+    importing.value = false;
+  }
 }
 
 function openPlanetPicker(id: number) {
@@ -298,16 +533,7 @@ async function handleDownloadPlanet(id: number) {
   downloadingPlanetId.value = id;
   try {
     const blob = await downloadControllerPlanet(id);
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'planet';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => {
-      window.URL.revokeObjectURL(downloadUrl);
-    }, 0);
+    downloadBlob(blob, 'planet');
   } catch (error) {
     message.error(error instanceof Error ? error.message : '下载 planet 文件失败');
   } finally {
@@ -412,6 +638,10 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.toolbar-actions {
+  flex-shrink: 0;
+}
+
 .planet-cell {
   min-width: 220px;
 }
@@ -425,5 +655,28 @@ onMounted(() => {
 
 .hidden-file-input {
   display: none;
+}
+
+.import-file-selection {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.import-file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+  }
 }
 </style>

@@ -1,12 +1,17 @@
 <template>
-  <a-layout style="min-height: 100vh">
-    <a-layout-sider :width="248" theme="light" style="border-right: 1px solid #e2e8f0">
+  <a-layout class="app-layout" style="min-height: 100vh">
+    <a-layout-sider
+      :width="248"
+      class="app-sider"
+      theme="light"
+      style="border-right: 1px solid #e2e8f0"
+    >
       <div class="brand-panel">
         <div class="brand-kicker">统一管理平台</div>
         <div class="brand-title">ZT MGMT</div>
         <div class="brand-caption">用于统一管理多个 ztncui 控制器的内部控制台。</div>
       </div>
-      <a-menu :selected-keys="selectedKeys" mode="inline">
+      <a-menu class="main-menu" :selected-keys="selectedKeys" mode="inline">
         <a-menu-item key="/controllers" @click="router.push('/controllers')">
           <template #icon>
             <CloudServerOutlined />
@@ -33,7 +38,7 @@
         </a-menu-item>
       </a-menu>
     </a-layout-sider>
-    <a-layout>
+    <a-layout class="main-layout">
       <a-layout-header class="topbar">
         <div>
           <div class="topbar-title">ZeroTier 统一管理台</div>
@@ -255,6 +260,63 @@ onMounted(() => {
   .topbar-actions {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  :deep(.main-layout) {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  :deep(.app-sider) {
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 0 !important;
+    flex: 0 0 auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .brand-panel {
+    display: none;
+  }
+
+  :deep(.main-menu) {
+    border-inline-end: 0;
+    display: flex;
+    overflow-x: auto;
+    padding: 4px 8px;
+  }
+
+  :deep(.main-menu .ant-menu-item) {
+    flex: 0 0 auto;
+    margin-block: 0;
+    padding-inline: 12px;
+    width: auto;
+  }
+
+  .topbar {
+    min-height: 0;
+    padding: 12px 16px;
+  }
+
+  .topbar-title {
+    font-size: 18px;
+  }
+
+  .topbar-subtitle {
+    display: none;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    gap: 4px 8px;
   }
 }
 </style>

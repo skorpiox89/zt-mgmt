@@ -44,3 +44,23 @@ export interface ControllerPlanetFile {
   size: number;
   uploadedAt: string;
 }
+
+export interface ControllerMigrationItem {
+  baseUrl: string;
+  name: string;
+  password: string;
+  planetFileContent?: string;
+  region: string;
+  subnetPoolCidr: string;
+  subnetPrefix: number;
+  username: string;
+}
+
+export interface ControllerMigrationData {
+  controllers: ControllerMigrationItem[];
+  exportedAt: string;
+}
+
+export interface ControllerMigrationImportResult {
+  imported: number;
+}

@@ -2,6 +2,7 @@ import { request, requestBlob } from './http';
 import type {
   ControllerFormPayload,
   ControllerItem,
+  ControllerMigrationImportResult,
   ControllerTestResult,
 } from '../types/controller';
 
@@ -52,5 +53,23 @@ export function downloadControllerPlanet(id: number) {
 export function deleteControllerPlanet(id: number) {
   return request<ControllerItem>(`/controllers/${id}/planet`, {
     method: 'DELETE',
+  });
+}
+
+export function exportControllerConfiguration(migrationPassword: string) {
+  return requestBlob('/controllers/export', {
+    body: JSON.stringify({ migrationPassword }),
+    method: 'POST',
+  });
+}
+
+export function importControllerConfiguration(file: File, migrationPassword: string) {
+  const formData = new FormData();
+  formData.append('file', file, file.name);
+  formData.append('migrationPassword', migrationPassword);
+
+  return request<ControllerMigrationImportResult>('/controllers/import', {
+    body: formData,
+    method: 'POST',
   });
 }

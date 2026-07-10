@@ -51,3 +51,13 @@ a {
   color: #475569;
   font-size: 14px;
 }
+
+@media (max-width: 768px) {
+  .page-shell {
+    padding: 16px;
+  }
+
+  .page-card {
+    border-radius: 12px;
+  }
+}

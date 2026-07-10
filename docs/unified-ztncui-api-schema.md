@@ -141,6 +141,30 @@ Request:
 
 #### `DELETE /api/controllers/:id`
 
+#### `POST /api/controllers/export`
+
+仅管理员可调用。请求体中的 `migrationPassword` 至少 12 个字符；接口返回一个加密的 JSON 下载文件。文件包含控制器配置、访问凭据和已上传的 planet 文件，但迁移密码不会写入文件。
+
+```json
+{
+  "migrationPassword": "a-strong-migration-password"
+}
+```
+
+#### `POST /api/controllers/import`
+
+仅管理员可调用。使用 `multipart/form-data` 提交导出的 JSON 文件（字段名 `file`）和迁移密码（字段名 `migrationPassword`）。导入前会校验文件、迁移密码和全部控制器配置；若存在同名控制器，整次导入会被拒绝，不会覆盖已有记录。
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "imported": 2
+  }
+}
+```
+
 #### `POST /api/controllers/:id/test`
 
 Response:

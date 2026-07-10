@@ -29,3 +29,7 @@ export interface ControllerTestResult {
   success: boolean;
   version: string | null;
 }
+
+export interface ControllerMigrationImportResult {
+  imported: number;
+}

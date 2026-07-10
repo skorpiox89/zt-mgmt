@@ -1,0 +1,4 @@
+export const CONTROLLER_MIGRATION_FORMAT = 'zt-mgmt/controllers';
+export const CONTROLLER_MIGRATION_VERSION = 1;
+export const MAX_CONTROLLER_MIGRATION_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+export const MAX_PLANET_FILE_SIZE_BYTES = 1024 * 1024;
