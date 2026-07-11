@@ -71,6 +71,15 @@
                       <a-menu-item key="download" :disabled="!record.hasPlanetFile">
                         下载 planet
                       </a-menu-item>
+                      <a-menu-item key="link" :disabled="!record.hasPlanetFile">
+                        获取下载链接
+                      </a-menu-item>
+                      <a-menu-item
+                        key="rotate-link"
+                        :disabled="!record.hasPlanetDownloadLink"
+                      >
+                        重新生成下载链接
+                      </a-menu-item>
                       <a-menu-item key="delete" danger :disabled="!record.hasPlanetFile">
                         删除 planet
                       </a-menu-item>
@@ -190,11 +199,45 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <a-modal v-model:open="planetLinkModalOpen" :footer="null" title="planet 下载链接">
+      <a-alert
+        description="该链接无需登录。更新 planet 文件后链接保持不变，请仅在受信任的局域网内使用。"
+        message="局域网公开下载地址"
+        show-icon
+        type="warning"
+      />
+      <div class="planet-link-field">
+        <label class="planet-link-label" for="planet-download-url">下载地址</label>
+        <a-input
+          id="planet-download-url"
+          :value="planetDownloadUrl"
+          readonly
+          @focus="selectPlanetLink"
+        />
+      </div>
+      <div class="planet-link-actions">
+        <a-button @click="handleCopyPlanetLink">
+          <template #icon><CopyOutlined /></template>
+          复制链接
+        </a-button>
+        <a-button type="primary" @click="handleOpenPlanetLink">
+          <template #icon><LinkOutlined /></template>
+          打开链接
+        </a-button>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { DownOutlined, ExportOutlined, ImportOutlined } from '@ant-design/icons-vue';
+import {
+  CopyOutlined,
+  DownOutlined,
+  ExportOutlined,
+  ImportOutlined,
+  LinkOutlined,
+} from '@ant-design/icons-vue';
 import { Modal, message } from 'ant-design-vue';
 import { onMounted, reactive, ref } from 'vue';
 import {
@@ -204,7 +247,9 @@ import {
   downloadControllerPlanet,
   exportControllerConfiguration,
   getControllers,
+  getOrCreateControllerPlanetLink,
   importControllerConfiguration,
+  rotateControllerPlanetLink,
   testController,
   uploadControllerPlanet,
   updateController,
@@ -224,6 +269,7 @@ const importing = ref(false);
 const modalOpen = ref(false);
 const exportModalOpen = ref(false);
 const importModalOpen = ref(false);
+const planetLinkModalOpen = ref(false);
 const editingId = ref<number | null>(null);
 const controllers = ref<ControllerItem[]>([]);
 const planetInput = ref<HTMLInputElement | null>(null);
@@ -234,6 +280,8 @@ const pendingPlanetControllerId = ref<number | null>(null);
 const uploadingPlanetId = ref<number | null>(null);
 const downloadingPlanetId = ref<number | null>(null);
 const deletingPlanetId = ref<number | null>(null);
+const planetLinkLoadingId = ref<number | null>(null);
+const planetDownloadUrl = ref('');
 const form = reactive<ControllerFormPayload>({
   baseUrl: '',
   name: '',
@@ -469,7 +517,8 @@ function isPlanetActionLoading(id: number) {
   return (
     uploadingPlanetId.value === id ||
     downloadingPlanetId.value === id ||
-    deletingPlanetId.value === id
+    deletingPlanetId.value === id ||
+    planetLinkLoadingId.value === id
   );
 }
 
@@ -481,6 +530,16 @@ function handlePlanetMenuClick(id: number, key: string) {
 
   if (key === 'download') {
     void handleDownloadPlanet(id);
+    return;
+  }
+
+  if (key === 'link') {
+    void handleGetPlanetLink(id);
+    return;
+  }
+
+  if (key === 'rotate-link') {
+    handleRotatePlanetLink(id);
     return;
   }
 
@@ -538,6 +597,92 @@ async function handleDownloadPlanet(id: number) {
     message.error(error instanceof Error ? error.message : '下载 planet 文件失败');
   } finally {
     downloadingPlanetId.value = null;
+  }
+}
+
+async function handleGetPlanetLink(id: number) {
+  planetLinkLoadingId.value = id;
+  try {
+    const result = await getOrCreateControllerPlanetLink(id);
+    planetDownloadUrl.value = result.downloadUrl;
+    planetLinkModalOpen.value = true;
+
+    const controller = controllers.value.find((item) => item.id === id);
+    if (controller) {
+      controller.hasPlanetDownloadLink = true;
+    }
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '获取 planet 下载链接失败');
+  } finally {
+    planetLinkLoadingId.value = null;
+  }
+}
+
+function handleRotatePlanetLink(id: number) {
+  Modal.confirm({
+    content: '重新生成后，当前下载链接会立即失效。确认继续吗？',
+    okText: '重新生成',
+    okType: 'danger',
+    onOk: async () => {
+      planetLinkLoadingId.value = id;
+      try {
+        const result = await rotateControllerPlanetLink(id);
+        planetDownloadUrl.value = result.downloadUrl;
+        planetLinkModalOpen.value = true;
+        message.success('planet 下载链接已重新生成');
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '重新生成 planet 下载链接失败');
+      } finally {
+        planetLinkLoadingId.value = null;
+      }
+    },
+    title: '重新生成下载链接',
+  });
+}
+
+function fallbackCopyText(value: string) {
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.left = '-9999px';
+  textarea.style.position = 'fixed';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+
+  if (!copied) {
+    throw new Error('浏览器未允许复制');
+  }
+}
+
+async function handleCopyPlanetLink() {
+  if (!planetDownloadUrl.value) {
+    return;
+  }
+
+  try {
+    if (window.isSecureContext && navigator.clipboard) {
+      await navigator.clipboard.writeText(planetDownloadUrl.value);
+    } else {
+      fallbackCopyText(planetDownloadUrl.value);
+    }
+    message.success('下载链接已复制');
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '复制下载链接失败');
+  }
+}
+
+function handleOpenPlanetLink() {
+  if (planetDownloadUrl.value) {
+    window.open(planetDownloadUrl.value, '_blank', 'noopener,noreferrer');
+  }
+}
+
+function selectPlanetLink(event: FocusEvent) {
+  const input = event.target;
+  if (input instanceof HTMLInputElement) {
+    input.select();
   }
 }
 
@@ -669,6 +814,23 @@ onMounted(() => {
   overflow-wrap: anywhere;
 }
 
+.planet-link-field {
+  margin-top: 16px;
+}
+
+.planet-link-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.planet-link-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 @media (max-width: 640px) {
   .toolbar {
     align-items: stretch;
@@ -676,6 +838,14 @@ onMounted(() => {
   }
 
   .toolbar-actions {
+    width: 100%;
+  }
+
+  .planet-link-actions {
+    flex-direction: column;
+  }
+
+  .planet-link-actions :deep(.ant-btn) {
     width: 100%;
   }
 }

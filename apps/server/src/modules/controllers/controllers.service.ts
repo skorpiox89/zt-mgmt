@@ -7,6 +7,7 @@ import {
 import type { Controller as ControllerRecord } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { decryptString, encryptString } from '../../common/utils/crypto.util';
 import {
@@ -38,6 +39,7 @@ type ControllerDtoRecord = Pick<
   | 'id'
   | 'lastCheckedAt'
   | 'name'
+  | 'planetDownloadToken'
   | 'planetFileSize'
   | 'planetFileUploadedAt'
   | 'region'
@@ -320,6 +322,118 @@ export class ControllersService {
     return this.toDto(entity);
   }
 
+  async getOrCreatePlanetDownloadToken(id: number): Promise<string> {
+    const entity = await this.findPlanetDownloadState(id);
+    this.ensurePlanetFileExists(id, entity.planetFileSize);
+
+    if (entity.planetDownloadToken) {
+      return entity.planetDownloadToken;
+    }
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const token = this.createPlanetDownloadToken();
+
+      try {
+        const result = await this.prisma.controller.updateMany({
+          data: {
+            planetDownloadToken: token,
+          },
+          where: {
+            id,
+            planetDownloadToken: null,
+            planetFileSize: {
+              not: null,
+            },
+          },
+        });
+
+        if (result.count === 1) {
+          return token;
+        }
+      } catch (error) {
+        if (!isPrismaLikeError(error) || error.code !== 'P2002') {
+          throw error;
+        }
+      }
+
+      const current = await this.findPlanetDownloadState(id);
+      this.ensurePlanetFileExists(id, current.planetFileSize);
+      if (current.planetDownloadToken) {
+        return current.planetDownloadToken;
+      }
+    }
+
+    throw new ConflictException('生成 planet 下载链接失败，请重试');
+  }
+
+  async rotatePlanetDownloadToken(id: number): Promise<string> {
+    const entity = await this.findPlanetDownloadState(id);
+    this.ensurePlanetFileExists(id, entity.planetFileSize);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const token = this.createPlanetDownloadToken();
+
+      try {
+        const result = await this.prisma.controller.updateMany({
+          data: {
+            planetDownloadToken: token,
+          },
+          where: {
+            id,
+            planetFileSize: {
+              not: null,
+            },
+          },
+        });
+
+        if (result.count === 1) {
+          return token;
+        }
+      } catch (error) {
+        if (!isPrismaLikeError(error) || error.code !== 'P2002') {
+          throw error;
+        }
+      }
+
+      const current = await this.findPlanetDownloadState(id);
+      this.ensurePlanetFileExists(id, current.planetFileSize);
+    }
+
+    throw new ConflictException('重新生成 planet 下载链接失败，请重试');
+  }
+
+  async getPlanetFileByDownloadTokenOrThrow(token: string): Promise<ControllerPlanetFile> {
+    if (!/^[a-f0-9]{64}$/.test(token)) {
+      throw new NotFoundException('planet 下载链接无效或已失效');
+    }
+
+    const entity = await this.prisma.controller.findUnique({
+      select: {
+        planetFileContent: true,
+        planetFileSize: true,
+        planetFileUploadedAt: true,
+      },
+      where: {
+        planetDownloadToken: token,
+      },
+    });
+
+    if (
+      !entity ||
+      entity.planetFileContent === null ||
+      entity.planetFileSize === null ||
+      entity.planetFileUploadedAt === null
+    ) {
+      throw new NotFoundException('planet 下载链接无效或已失效');
+    }
+
+    return {
+      content: Buffer.from(entity.planetFileContent),
+      size: entity.planetFileSize,
+      uploadedAt: entity.planetFileUploadedAt.toISOString(),
+    };
+  }
+
   async getPlanetFileOrThrow(id: number): Promise<ControllerPlanetFile> {
     const entity = await this.prisma.controller.findUnique({
       select: {
@@ -355,6 +469,7 @@ export class ControllersService {
 
     const entity = await this.prisma.controller.update({
       data: {
+        planetDownloadToken: null,
         planetFileContent: null,
         planetFileSize: null,
         planetFileUploadedAt: null,
@@ -520,6 +635,8 @@ export class ControllersService {
   private toDto(entity: ControllerDtoRecord): ControllerDto {
     return {
       baseUrl: entity.baseUrl,
+      hasPlanetDownloadLink:
+        entity.planetDownloadToken !== null && entity.planetFileSize !== null,
       hasPlanetFile: entity.planetFileSize !== null,
       id: entity.id,
       lastCheckedAt: entity.lastCheckedAt?.toISOString() ?? null,
@@ -542,11 +659,38 @@ export class ControllersService {
     return 'unknown';
   }
 
+  private createPlanetDownloadToken() {
+    return randomBytes(32).toString('hex');
+  }
+
+  private async findPlanetDownloadState(id: number) {
+    const entity = await this.prisma.controller.findUnique({
+      select: {
+        planetDownloadToken: true,
+        planetFileSize: true,
+      },
+      where: { id },
+    });
+
+    if (!entity) {
+      throw new NotFoundException(`控制器 ${id} 不存在`);
+    }
+
+    return entity;
+  }
+
+  private ensurePlanetFileExists(id: number, planetFileSize: number | null) {
+    if (planetFileSize === null) {
+      throw new NotFoundException(`控制器 ${id} 未上传 planet 文件`);
+    }
+  }
+
   private readonly controllerDtoSelect = {
     baseUrl: true,
     id: true,
     lastCheckedAt: true,
     name: true,
+    planetDownloadToken: true,
     planetFileSize: true,
     planetFileUploadedAt: true,
     region: true,

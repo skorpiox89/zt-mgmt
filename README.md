@@ -19,6 +19,7 @@
 - 支持一键测试连接并回写在线状态、最近检测时间
 - 控制器密码以 AES-256-GCM 加密后存入 MySQL
 - 支持使用迁移密码加密导入、导出控制器配置和 planet 文件
+- 支持为已上传的 planet 文件生成稳定的局域网免登录下载链接，并可随时轮换使旧链接失效
 
 ### 3. 统一网络管理
 
@@ -134,6 +135,18 @@ make remote-env-deploy IMAGE_TAG=20260711
 私有镜像仓库需要在构建机和客户机预先执行对应的 `docker login`。若通过域名访问 Web，请在
 `.env.production` 的 `VITE_ALLOWED_HOSTS` 中填写域名；多个域名以逗号分隔。
 
+如果需要让同一局域网内的设备通过 URL 下载 planet 文件，还必须在客户机的 `.env.production`
+中配置 Web 服务对局域网公开的 HTTP Origin。地址只包含协议、主机和端口，不要追加 `/api` 路径：
+
+```env
+PLANET_DOWNLOAD_BASE_URL=http://192.168.1.100:19071
+```
+
+其中 IP 应替换为客户机的固定局域网 IP；端口应与 Web 实际暴露端口一致。若通过
+`REMOTE_ENV_WEB_PORT` 修改了默认端口，需要同步修改该地址，并确保客户机防火墙允许局域网访问。
+未配置时系统会尝试根据管理端请求来源生成地址，但在反向代理、localhost 或容器网络环境下可能
+得到其他设备无法访问的 URL，因此生产环境建议显式配置。
+
 常用运维命令：
 
 ```bash
@@ -248,8 +261,13 @@ make remote-env-deploy IMAGE_TAG=20260711 REMOTE_ENV_WEB_PORT=8080
 DATABASE_URL=mysql://zt_mgmt:zt_mgmt@127.0.0.1:19075/zt_mgmt
 JWT_SECRET=replace-this-with-a-long-random-string
 CONTROLLER_PASSWORD_KEY=replace-this-with-a-long-random-string
+PLANET_DOWNLOAD_BASE_URL=http://192.168.1.100:19071
 VITE_API_BASE_URL=/api
 ```
+
+`PLANET_DOWNLOAD_BASE_URL` 用于生成 planet 文件的免登录下载链接。该链接包含不可枚举的随机令牌，
+更新 planet 文件时 URL 保持不变；重新生成链接或删除 planet 文件后，旧链接立即失效。拥有链接的
+设备无需登录即可下载文件，因此应只在受信任的局域网内分发。
 
 首次启动并完成数据库迁移后，系统会自动初始化唯一管理员账号：`admin / admin`。
 请在首次登录后立即修改该密码。

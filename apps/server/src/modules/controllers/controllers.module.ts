@@ -5,9 +5,10 @@ import { AuthModule } from '../auth/auth.module';
 import { ZtncuiModule } from '../ztncui/ztncui.module';
 import { ControllersController } from './controllers.controller';
 import { ControllersService } from './controllers.service';
+import { PlanetDownloadController } from './planet-download.controller';
 
 @Module({
-  controllers: [ControllersController],
+  controllers: [ControllersController, PlanetDownloadController],
   exports: [ControllersService],
   imports: [AuthModule, PrismaModule, ZtncuiModule],
   providers: [AdminGuard, ControllersService],

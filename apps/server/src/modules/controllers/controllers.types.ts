@@ -27,6 +27,7 @@ export interface ControllerConfig {
 export interface ControllerDto {
   baseUrl: string;
   hasPlanetFile: boolean;
+  hasPlanetDownloadLink: boolean;
   id: number;
   lastCheckedAt: string | null;
   name: string;
@@ -43,6 +44,10 @@ export interface ControllerPlanetFile {
   content: Buffer;
   size: number;
   uploadedAt: string;
+}
+
+export interface ControllerPlanetDownloadLink {
+  downloadUrl: string;
 }
 
 export interface ControllerMigrationItem {

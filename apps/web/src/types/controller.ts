@@ -1,5 +1,6 @@
 export interface ControllerItem {
   baseUrl: string;
+  hasPlanetDownloadLink: boolean;
   hasPlanetFile: boolean;
   id: number;
   lastCheckedAt: string | null;
@@ -32,4 +33,8 @@ export interface ControllerTestResult {
 
 export interface ControllerMigrationImportResult {
   imported: number;
+}
+
+export interface ControllerPlanetDownloadLink {
+  downloadUrl: string;
 }

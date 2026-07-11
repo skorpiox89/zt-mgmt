@@ -3,6 +3,7 @@ import type {
   ControllerFormPayload,
   ControllerItem,
   ControllerMigrationImportResult,
+  ControllerPlanetDownloadLink,
   ControllerTestResult,
 } from '../types/controller';
 
@@ -53,6 +54,18 @@ export function downloadControllerPlanet(id: number) {
 export function deleteControllerPlanet(id: number) {
   return request<ControllerItem>(`/controllers/${id}/planet`, {
     method: 'DELETE',
+  });
+}
+
+export function getOrCreateControllerPlanetLink(id: number) {
+  return request<ControllerPlanetDownloadLink>(`/controllers/${id}/planet-link`, {
+    method: 'POST',
+  });
+}
+
+export function rotateControllerPlanetLink(id: number) {
+  return request<ControllerPlanetDownloadLink>(`/controllers/${id}/planet-link/rotate`, {
+    method: 'POST',
   });
 }
 

@@ -7,6 +7,8 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
+ARG PRISMA_ENGINES_MIRROR=https://npmmirror.com/mirrors/prisma
+ENV PRISMA_ENGINES_MIRROR=$PRISMA_ENGINES_MIRROR
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json apps/server/package.json
 COPY apps/web/package.json apps/web/package.json

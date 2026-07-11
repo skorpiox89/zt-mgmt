@@ -2,6 +2,7 @@ SHELL := /bin/bash
 
 PNPM := pnpm
 DOCKER ?= docker
+DOCKER_BUILD_FLAGS ?=
 CURL ?= curl
 ROOT_DIR := $(CURDIR)
 ENV_FILE := $(ROOT_DIR)/.env
@@ -91,13 +92,13 @@ prisma-migrate: ## Run Prisma migrations for the server
 	@set -a; source "$(ENV_FILE)"; set +a; $(PNPM) --filter @zt-mgmt/server prisma:migrate
 
 server-package: ## Build the server image for local use and registry publication
-	$(DOCKER) build --target server-runtime -t $(SERVER_LOCAL_IMAGE) -t $(SERVER_IMAGE) .
+	$(DOCKER) build $(DOCKER_BUILD_FLAGS) --target server-runtime -t $(SERVER_LOCAL_IMAGE) -t $(SERVER_IMAGE) .
 
 server-push: server-package ## Push the server image to the remote registry
 	$(DOCKER) push $(SERVER_IMAGE)
 
 web-package: ## Build the web image for local use and registry publication
-	$(DOCKER) build --target web-runtime -t $(WEB_LOCAL_IMAGE) -t $(WEB_IMAGE) .
+	$(DOCKER) build $(DOCKER_BUILD_FLAGS) --target web-runtime -t $(WEB_LOCAL_IMAGE) -t $(WEB_IMAGE) .
 
 web-push: web-package ## Push the web image to the remote registry
 	$(DOCKER) push $(WEB_IMAGE)

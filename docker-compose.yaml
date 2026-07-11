@@ -39,6 +39,7 @@ services:
       DATABASE_URL: mysql://${MYSQL_USER:-zt_mgmt}:${MYSQL_PASSWORD:-zt_mgmt}@mysql:3306/${MYSQL_DATABASE:-zt_mgmt}
       JWT_SECRET: ${JWT_SECRET:-replace-this-in-production}
       CONTROLLER_PASSWORD_KEY: ${CONTROLLER_PASSWORD_KEY:-replace-this-in-production}
+      PLANET_DOWNLOAD_BASE_URL: ${PLANET_DOWNLOAD_BASE_URL:-}
     ports:
       - "${SERVER_PORT:-19070}:3001"
     healthcheck:
