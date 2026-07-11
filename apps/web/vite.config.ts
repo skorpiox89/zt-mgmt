@@ -21,7 +21,18 @@ function resolveApiProxyTarget() {
   return `http://${backendHost}:${backendPort}`;
 }
 
-const allowedHosts = ['zt-mgmt.dev', 'zt-mgmt.skorpiox89.cc'];
+const defaultAllowedHosts = ['zt-mgmt.dev', 'zt-mgmt.skorpiox89.cc'];
+
+function resolveAllowedHosts() {
+  const configuredHosts = (process.env.VITE_ALLOWED_HOSTS || '')
+    .split(',')
+    .map((host) => host.trim())
+    .filter(Boolean);
+
+  return [...new Set([...defaultAllowedHosts, ...configuredHosts])];
+}
+
+const allowedHosts = resolveAllowedHosts();
 
 export default defineConfig({
   plugins: [vue()],

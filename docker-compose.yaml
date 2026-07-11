@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/mysql:8.4
+    image: ${MYSQL_IMAGE:-swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/mysql:8.4}
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
@@ -68,6 +68,7 @@ services:
         condition: service_healthy
     environment:
       VITE_API_BASE_URL: http://server:3001/api
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-}
     ports:
       - "${WEB_PORT:-19071}:4173"
     healthcheck:

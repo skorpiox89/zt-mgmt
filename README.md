@@ -106,6 +106,133 @@ docker compose up -d --build
 - API：`http://127.0.0.1:3001/api/health`
 - MySQL：`127.0.0.1:19075`
 
+### 客户环境部署
+
+部署流程与 `casino-mgmt2` 的 `image-push + remote-env-up` 一致，分为构建机和客户机两个步骤。
+客户机需要该仓库的部署文件、Docker Engine 和 Docker Compose v2，不需要安装 Node.js 或 pnpm。
+`remote-env-deploy` 会拉取镜像并启动完整的 `MySQL + Server + Web` 栈；MySQL 数据保存在 Docker
+volume 中，常规停止和更新不会删除。
+
+1. 在客户机基于模板创建并填写生产配置，生产密钥和数据库密码不能保留示例值：
+
+```bash
+cp .env.production.example .env.production
+```
+
+2. 在构建机发布应用镜像：
+
+```bash
+make image-push IMAGE_TAG=20260711
+```
+
+3. 在客户机使用相同镜像标签部署完整环境：
+
+```bash
+make remote-env-deploy IMAGE_TAG=20260711
+```
+
+私有镜像仓库需要在构建机和客户机预先执行对应的 `docker login`。若通过域名访问 Web，请在
+`.env.production` 的 `VITE_ALLOWED_HOSTS` 中填写域名；多个域名以逗号分隔。
+
+常用运维命令：
+
+```bash
+make remote-env-status IMAGE_TAG=20260711
+make remote-env-down IMAGE_TAG=20260711
+make remote-env-reset IMAGE_TAG=20260711
+```
+
+`remote-env-down` 保留 MySQL 数据卷；`remote-env-reset` 会删除数据卷后重新部署。端口可通过
+`REMOTE_ENV_MYSQL_PORT`、`REMOTE_ENV_SERVER_PORT`、`REMOTE_ENV_WEB_PORT` 覆盖，配置文件路径可通过
+`REMOTE_ENV_FILE` 覆盖。
+
+## Makefile 命令说明
+
+执行 `make help` 可以查看当前仓库所有可用目标。下面按使用场景汇总各命令；带有 `.env` 的开发命令会先检查该文件是否存在。
+
+### 环境、开发与数据库
+
+| 命令 | 用途 |
+| --- | --- |
+| `make env` | 当根目录不存在 `.env` 时，从 `.env.example` 创建；不会覆盖已有配置。 |
+| `make install` | 安装 pnpm workspace 依赖。 |
+| `make lint` | 执行 Server 的 TypeScript 检查和 Web 的 `vue-tsc` 检查。 |
+| `make build` | 构建 Server 与 Web 的生产产物。 |
+| `make clean` | 删除 `apps/server/dist` 与 `apps/web/dist` 构建产物。 |
+| `make dev` | 使用 `.env` 同时启动 NestJS 监听模式和 Vite 开发服务器。 |
+| `make server-build` | 仅构建 NestJS Server。 |
+| `make server-dev` | 使用 `.env` 以监听模式启动 Server。 |
+| `make server-start` | 使用 `.env` 启动已构建的 Server。 |
+| `make web-build` | 仅构建 Vue Web 生产产物。 |
+| `make web-dev` | 使用 `.env` 启动 Vite 开发服务器。 |
+| `make web-preview` | 使用 `.env` 预览已构建的 Web 产物。 |
+| `make prisma-generate` | 使用 `.env` 生成 Prisma Client。 |
+| `make prisma-migrate` | 使用 `.env` 执行 Prisma 开发迁移；仅用于本地开发数据库。 |
+
+### 镜像与本地 Compose
+
+| 命令 | 用途 |
+| --- | --- |
+| `make server-package` | 构建 Server 镜像，同时写入本地标签和镜像仓库标签。 |
+| `make server-push` | 构建并推送 Server 镜像。 |
+| `make web-package` | 构建 Web 镜像，同时写入本地标签和镜像仓库标签。 |
+| `make web-push` | 构建并推送 Web 镜像。 |
+| `make image` | 构建 Server 与 Web 两个镜像，不推送。 |
+| `make image-push` | 构建并推送 Server 与 Web 两个镜像，是构建机发布入口。 |
+| `make push` | `image-push` 的别名。 |
+| `make redeploy` | 在当前机器拉取 Compose 所需镜像，并协调本地 `MySQL + Server + Web` 栈；不会删除数据卷。 |
+
+### 客户镜像环境
+
+以下命令在客户机执行，默认读取 `.env.production`，并以 `zt-mgmt-remote` 作为 Docker Compose 项目名。除日志命令外，都建议带上与构建机相同的 `IMAGE_TAG`。
+
+| 命令 | 用途 |
+| --- | --- |
+| `make remote-env-config-check` | 检查生产配置文件和数据库密码、JWT 密钥、控制器密码加密密钥是否仍为默认值。 |
+| `make remote-env-pull` | 拉取 MySQL、Server、Web 所需镜像，不启动服务。 |
+| `make remote-env-deploy` | 拉取镜像、启动完整环境、轮询 API/Web 健康检查并输出状态。 |
+| `make remote-env-up` | `remote-env-deploy` 的别名。 |
+| `make remote-env-status` | 输出使用的镜像、访问地址和容器状态。 |
+| `make remote-env-check` | 单独轮询 API 和 Web 健康检查；失败时输出服务状态和最近日志。 |
+| `make remote-env-down` | 停止并删除容器、网络，保留 MySQL 数据卷。 |
+| `make remote-env-stop` | `remote-env-down` 的别名。 |
+| `make remote-env-reset` | 删除容器、网络和 MySQL 数据卷后立即重新部署；会清空所有业务数据。 |
+| `make remote-env-server-logs` | 持续查看 Server 日志。 |
+| `make remote-env-web-logs` | 持续查看 Web 日志。 |
+| `make remote-env-mysql-logs` | 持续查看 MySQL 日志。 |
+
+若要只清除客户机环境而不重新部署，请执行：
+
+```bash
+docker compose \
+  --env-file .env.production \
+  -p zt-mgmt-remote \
+  -f docker-compose.yaml \
+  down --volumes --remove-orphans
+```
+
+若部署时设置过 `REMOTE_ENV_NAME`，请将上例的 `zt-mgmt-remote` 替换为实际项目名。
+
+### 常用参数
+
+| 参数 | 默认值 | 用途 |
+| --- | --- | --- |
+| `IMAGE_TAG` | `latest` | Server/Web 镜像标签。构建机推送和客户机部署必须使用相同值。 |
+| `REGISTRY` | `registry.cn-hangzhou.aliyuncs.com/skorpiox89` | Server/Web 镜像仓库地址。 |
+| `REMOTE_ENV_FILE` | `.env.production` | 客户环境的生产配置文件路径。 |
+| `REMOTE_ENV_NAME` | `zt-mgmt-remote` | 客户环境的 Docker Compose 项目名，用于隔离容器、网络和数据卷。 |
+| `REMOTE_ENV_MYSQL_PORT` | `19075` | 客户环境 MySQL 宿主机端口。 |
+| `REMOTE_ENV_SERVER_PORT` | `19070` | 客户环境 API 宿主机端口。 |
+| `REMOTE_ENV_WEB_PORT` | `19071` | 客户环境 Web 宿主机端口。 |
+| `REMOTE_ENV_MYSQL_IMAGE`、`REMOTE_ENV_SERVER_IMAGE`、`REMOTE_ENV_WEB_IMAGE` | 对应默认镜像 | 覆盖客户环境使用的单个镜像地址或标签。 |
+| `REMOTE_ENV_CHECK_ATTEMPTS`、`REMOTE_ENV_CHECK_INTERVAL` | `60`、`2` | 客户环境健康检查的最大次数和间隔秒数。 |
+
+例如，将 Web 暴露到 `8080`，并使用指定镜像版本部署：
+
+```bash
+make remote-env-deploy IMAGE_TAG=20260711 REMOTE_ENV_WEB_PORT=8080
+```
+
 ### 本地 Caddy 域名
 
 仓库根目录提供了 `Caddyfile`，用于本地 HTTPS 反代：
