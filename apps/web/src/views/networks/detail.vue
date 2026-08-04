@@ -2,17 +2,25 @@
   <div class="page-shell">
     <a-card class="page-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="20">
-        <div class="detail-head">
-          <div>
-            <h1 class="page-title">{{ detail?.networkName || '网络详情' }}</h1>
-            <p class="page-subtitle">
-              控制器 {{ detail?.controllerName || '-' }} · 网络 ID {{ detail?.networkId || '-' }}
-            </p>
+        <div>
+          <a-breadcrumb style="margin-bottom: 12px">
+            <a-breadcrumb-item>
+              <router-link to="/networks">网络管理</router-link>
+            </a-breadcrumb-item>
+            <a-breadcrumb-item>{{ detail?.networkName || '网络详情' }}</a-breadcrumb-item>
+          </a-breadcrumb>
+          <div class="detail-head">
+            <div>
+              <h1 class="page-title">{{ detail?.networkName || '网络详情' }}</h1>
+              <p class="page-subtitle">
+                控制器 {{ detail?.controllerName || '-' }} · 网络 ID {{ detail?.networkId || '-' }}
+              </p>
+            </div>
+            <a-space>
+              <a-button @click="loadData">刷新</a-button>
+              <a-button @click="router.push('/networks')">返回</a-button>
+            </a-space>
           </div>
-          <a-space>
-            <a-button @click="loadData">刷新</a-button>
-            <a-button @click="router.push('/networks')">返回</a-button>
-          </a-space>
         </div>
 
         <a-descriptions bordered :column="2" size="middle">
@@ -41,7 +49,7 @@
 
         <div>
           <h2 class="section-title">成员列表</h2>
-          <a-table :columns="columns" :data-source="members" :loading="loading" row-key="memberId">
+          <a-table :columns="columns" :data-source="members" :loading="loading" row-key="memberId" :scroll="{ x: 900 }">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'authorized'">
                 <a-switch

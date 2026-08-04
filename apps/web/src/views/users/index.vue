@@ -18,9 +18,16 @@
         :columns="columns"
         :data-source="users"
         :loading="loading"
+        :pagination="tablePagination"
         row-key="id"
+        :scroll="{ x: 800 }"
         size="middle"
       >
+        <template #emptyText>
+          <a-empty description="暂无用户">
+            <a-button type="primary" @click="openCreateModal">新建用户</a-button>
+          </a-empty>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'role'">
             <a-tag :color="record.role === 'ADMIN' ? 'gold' : 'blue'">
@@ -29,7 +36,7 @@
           </template>
 
           <template v-else-if="column.key === 'createdAt'">
-            {{ formatDate(record.createdAt) }}
+            {{ formatDateTime(record.createdAt) }}
           </template>
 
           <template v-else-if="column.key === 'actions'">
@@ -121,6 +128,7 @@ import {
 } from '../../api/users';
 import type { NetworkItem } from '../../types/network';
 import type { HiddenNetworkItem, UserItem } from '../../types/user';
+import { formatDateTime } from '../../utils/format';
 
 function buildHiddenKey(controllerId: number, networkId: string) {
   return `${controllerId}:${networkId}`;
@@ -159,11 +167,29 @@ const resetForm = reactive({
   newPassword: '',
 });
 
+const tablePagination = {
+  defaultPageSize: 10,
+  pageSizeOptions: ['10', '20', '50'],
+  showSizeChanger: true,
+  showTotal: (total: number) => `共 ${total} 条`,
+};
+
 const columns = [
-  { dataIndex: 'username', key: 'username', title: '用户名' },
+  {
+    dataIndex: 'username',
+    key: 'username',
+    title: '用户名',
+    sorter: (a: UserItem, b: UserItem) => a.username.localeCompare(b.username, 'zh'),
+  },
   { dataIndex: 'role', key: 'role', title: '角色' },
   { dataIndex: 'hiddenNetworkCount', key: 'hiddenNetworkCount', title: '隐藏网络数' },
-  { dataIndex: 'createdAt', key: 'createdAt', title: '创建时间' },
+  {
+    dataIndex: 'createdAt',
+    key: 'createdAt',
+    title: '创建时间',
+    sorter: (a: UserItem, b: UserItem) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  },
   { key: 'actions', title: '操作' },
 ];
 
@@ -198,10 +224,6 @@ const hiddenRowSelection = computed(() => ({
   },
   selectedRowKeys: selectedHiddenKeys.value,
 }));
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleString();
-}
 
 function resetCreateForm() {
   createForm.confirmPassword = '';

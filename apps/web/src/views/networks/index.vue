@@ -36,8 +36,15 @@
         :columns="columns"
         :data-source="networks"
         :loading="loading"
+        :pagination="tablePagination"
         row-key="networkId"
+        :scroll="{ x: 900 }"
       >
+        <template #emptyText>
+          <a-empty description="暂无网络">
+            <a-button type="primary" @click="openCreateModal">创建网络</a-button>
+          </a-empty>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'memberCount'">
             {{ record.memberCount ?? '-' }}
@@ -126,12 +133,36 @@ const createForm = reactive({
   networkName: '',
 });
 
+const tablePagination = {
+  defaultPageSize: 10,
+  pageSizeOptions: ['10', '20', '50'],
+  showSizeChanger: true,
+  showTotal: (total: number) => `共 ${total} 条`,
+};
+
 const columns = [
   { dataIndex: 'controllerName', key: 'controllerName', title: '控制器' },
-  { dataIndex: 'region', key: 'region', title: '区域' },
-  { dataIndex: 'networkName', key: 'networkName', title: '网络名称' },
+  {
+    dataIndex: 'region',
+    key: 'region',
+    title: '区域',
+    sorter: (a: NetworkItem, b: NetworkItem) => (a.region || '').localeCompare(b.region || '', 'zh'),
+  },
+  {
+    dataIndex: 'networkName',
+    key: 'networkName',
+    title: '网络名称',
+    sorter: (a: NetworkItem, b: NetworkItem) =>
+      (a.networkName || '').localeCompare(b.networkName || '', 'zh'),
+  },
   { dataIndex: 'networkId', key: 'networkId', title: '网络 ID' },
-  { dataIndex: 'memberCount', key: 'memberCount', title: '成员数' },
+  {
+    dataIndex: 'memberCount',
+    key: 'memberCount',
+    title: '成员数',
+    sorter: (a: NetworkItem, b: NetworkItem) =>
+      (a.memberCount ?? -1) - (b.memberCount ?? -1),
+  },
   { key: 'actions', title: '操作' },
 ];
 

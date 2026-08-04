@@ -27,17 +27,23 @@
         :columns="columns"
         :data-source="controllers"
         :loading="loading"
+        :pagination="tablePagination"
         row-key="id"
         :scroll="{ x: 1120 }"
         size="middle"
       >
+        <template #emptyText>
+          <a-empty description="暂无控制器">
+            <a-button type="primary" @click="openCreateModal">新增控制器</a-button>
+          </a-empty>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="statusColor(record.status)">{{ statusText(record.status) }}</a-tag>
           </template>
 
           <template v-else-if="column.key === 'lastCheckedAt'">
-            {{ record.lastCheckedAt || '-' }}
+            {{ formatDateTime(record.lastCheckedAt) }}
           </template>
 
           <template v-else-if="column.key === 'planetFile'">
@@ -47,7 +53,7 @@
               </a-tag>
               <div v-if="record.hasPlanetFile" class="planet-meta">
                 大小 {{ formatFileSize(record.planetFileSize) }} ·
-                上传时间 {{ record.planetFileUploadedAt || '-' }}
+                上传时间 {{ formatDateTime(record.planetFileUploadedAt) }}
               </div>
             </div>
           </template>
@@ -55,38 +61,42 @@
           <template v-else-if="column.key === 'actions'">
             <a-space wrap>
               <a-button size="small" @click="openEditModal(record)">编辑</a-button>
-              <a-button size="small" @click="handleTest(record.id)">测试连接</a-button>
+              <a-button
+                size="small"
+                :loading="testingId === record.id"
+                @click="handleTest(record.id)"
+              >
+                测试连接
+              </a-button>
               <a-button danger size="small" @click="handleDelete(record.id)">删除</a-button>
-              <template v-if="authStore.isAdmin">
-                <a-dropdown :trigger="['click']">
-                  <a-button size="small" :loading="isPlanetActionLoading(record.id)">
-                    管理 planet
-                    <DownOutlined />
-                  </a-button>
-                  <template #overlay>
-                    <a-menu @click="handlePlanetMenuMenuClick(record.id, $event)">
-                      <a-menu-item key="upload">
-                        {{ record.hasPlanetFile ? '更新 planet' : '上传 planet' }}
-                      </a-menu-item>
-                      <a-menu-item key="download" :disabled="!record.hasPlanetFile">
-                        下载 planet
-                      </a-menu-item>
-                      <a-menu-item key="link" :disabled="!record.hasPlanetFile">
-                        获取下载链接
-                      </a-menu-item>
-                      <a-menu-item
-                        key="rotate-link"
-                        :disabled="!record.hasPlanetDownloadLink"
-                      >
-                        重新生成下载链接
-                      </a-menu-item>
-                      <a-menu-item key="delete" danger :disabled="!record.hasPlanetFile">
-                        删除 planet
-                      </a-menu-item>
-                    </a-menu>
-                  </template>
-                </a-dropdown>
-              </template>
+              <a-dropdown v-if="authStore.isAdmin" :trigger="['click']">
+                <a-button size="small">
+                  管理 planet
+                  <DownOutlined />
+                </a-button>
+                <template #overlay>
+                  <a-menu @click="handlePlanetMenuMenuClick(record.id, $event)">
+                    <a-menu-item key="upload">
+                      {{ record.hasPlanetFile ? '更新 planet' : '上传 planet' }}
+                    </a-menu-item>
+                    <a-menu-item key="download" :disabled="!record.hasPlanetFile">
+                      下载 planet
+                    </a-menu-item>
+                    <a-menu-item key="link" :disabled="!record.hasPlanetFile">
+                      获取下载链接
+                    </a-menu-item>
+                    <a-menu-item
+                      key="rotate-link"
+                      :disabled="!record.hasPlanetDownloadLink"
+                    >
+                      重新生成下载链接
+                    </a-menu-item>
+                    <a-menu-item key="delete" danger :disabled="!record.hasPlanetFile">
+                      删除 planet
+                    </a-menu-item>
+                  </a-menu>
+                </template>
+              </a-dropdown>
             </a-space>
           </template>
         </template>
@@ -256,6 +266,7 @@ import {
   updateController,
 } from '../../api/controllers';
 import { useAuthStore } from '../../stores/auth';
+import { formatDateTime } from '../../utils/format';
 import type { ControllerFormPayload, ControllerItem } from '../../types/controller';
 
 const MAX_PLANET_FILE_SIZE_BYTES = 1024 * 1024;
@@ -273,6 +284,7 @@ const importModalOpen = ref(false);
 const planetLinkModalOpen = ref(false);
 const editingId = ref<number | null>(null);
 const formRef = ref<FormInstance>();
+const testingId = ref<number | null>(null);
 const controllers = ref<ControllerItem[]>([]);
 const planetInput = ref<HTMLInputElement | null>(null);
 const controllerImportInput = ref<HTMLInputElement | null>(null);
@@ -316,14 +328,53 @@ const formRules = computed<Record<string, Rule[]>>(() => ({
   subnetPrefix: [{ required: true, message: '请输入子网前缀', trigger: 'change' }],
 }));
 
+const tablePagination = {
+  defaultPageSize: 10,
+  pageSizeOptions: ['10', '20', '50'],
+  showSizeChanger: true,
+  showTotal: (total: number) => `共 ${total} 条`,
+};
+
+function statusRank(status: ControllerItem['status']) {
+  if (status === 'online') {
+    return 0;
+  }
+  if (status === 'offline') {
+    return 1;
+  }
+  return 2;
+}
+
 const columns = [
-  { dataIndex: 'name', key: 'name', title: '名称' },
-  { dataIndex: 'region', key: 'region', title: '区域' },
+  {
+    dataIndex: 'name',
+    key: 'name',
+    title: '名称',
+    sorter: (a: ControllerItem, b: ControllerItem) => a.name.localeCompare(b.name, 'zh'),
+  },
+  {
+    dataIndex: 'region',
+    key: 'region',
+    title: '区域',
+    sorter: (a: ControllerItem, b: ControllerItem) =>
+      (a.region || '').localeCompare(b.region || '', 'zh'),
+  },
   { dataIndex: 'baseUrl', key: 'baseUrl', title: '控制器地址' },
   { dataIndex: 'subnetPoolCidr', key: 'subnetPoolCidr', title: '子网池' },
   { dataIndex: 'planetFile', key: 'planetFile', title: 'Planet 文件' },
-  { dataIndex: 'status', key: 'status', title: '状态' },
-  { dataIndex: 'lastCheckedAt', key: 'lastCheckedAt', title: '最近检测时间' },
+  {
+    dataIndex: 'status',
+    key: 'status',
+    title: '状态',
+    sorter: (a: ControllerItem, b: ControllerItem) => statusRank(a.status) - statusRank(b.status),
+  },
+  {
+    dataIndex: 'lastCheckedAt',
+    key: 'lastCheckedAt',
+    title: '最近检测时间',
+    sorter: (a: ControllerItem, b: ControllerItem) =>
+      new Date(a.lastCheckedAt || 0).getTime() - new Date(b.lastCheckedAt || 0).getTime(),
+  },
   { key: 'actions', title: '操作' },
 ];
 
@@ -533,15 +584,6 @@ function openPlanetPicker(id: number) {
     planetInput.value.value = '';
     planetInput.value.click();
   }
-}
-
-function isPlanetActionLoading(id: number) {
-  return (
-    uploadingPlanetId.value === id ||
-    downloadingPlanetId.value === id ||
-    deletingPlanetId.value === id ||
-    planetLinkLoadingId.value === id
-  );
 }
 
 function handlePlanetMenuClick(id: number, key: string) {
@@ -770,6 +812,7 @@ async function handleSave() {
 }
 
 async function handleTest(id: number) {
+  testingId.value = id;
   try {
     const result = await testController(id);
     message.success(
@@ -779,6 +822,8 @@ async function handleTest(id: number) {
   } catch (error) {
     message.error(error instanceof Error ? error.message : '连接测试失败');
     await loadControllers();
+  } finally {
+    testingId.value = null;
   }
 }
 

@@ -20,9 +20,18 @@
         :columns="columns"
         :data-source="machines"
         :loading="loading"
+        :pagination="tablePagination"
         row-key="id"
+        :scroll="{ x: 1300 }"
         size="middle"
       >
+        <template #emptyText>
+          <a-empty description="暂无测试机">
+            <a-button v-if="authStore.isAdmin" type="primary" @click="openCreateModal">
+              新增测试机
+            </a-button>
+          </a-empty>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-space direction="vertical" :size="4">
@@ -40,7 +49,7 @@
               <a-tag :color="zerotierStatusColor(record.zerotierServiceStatus)">
                 {{ zerotierStatusText(record.zerotierServiceStatus) }}
               </a-tag>
-              <span class="cell-subtext">{{ formatDate(record.lastZeroTierCheckedAt) }}</span>
+              <span class="cell-subtext">{{ formatDateTime(record.lastZeroTierCheckedAt) }}</span>
             </a-space>
           </template>
 
@@ -65,11 +74,11 @@
           </template>
 
           <template v-else-if="column.key === 'lastCheckedAt'">
-            {{ formatDate(record.lastCheckedAt) }}
+            {{ formatDateTime(record.lastCheckedAt) }}
           </template>
 
           <template v-else-if="column.key === 'lastSwitchAt'">
-            {{ formatDate(record.lastSwitchAt) }}
+            {{ formatDateTime(record.lastSwitchAt) }}
           </template>
 
           <template v-else-if="column.key === 'remark'">
@@ -89,42 +98,36 @@
               </a-button>
               <template v-if="authStore.isAdmin">
                 <a-button size="small" @click="openEditModal(record)">编辑</a-button>
-                <a-button
-                  size="small"
-                  :loading="sshTestingId === record.id"
-                  @click="handleTestSsh(record)"
-                >
-                  测试 SSH
-                </a-button>
+                <a-button danger size="small" @click="handleDelete(record.id)">删除</a-button>
                 <a-dropdown :trigger="['click']">
                   <a-button
                     size="small"
                     :disabled="record.switchStatus === 'running'"
-                    :loading="isZeroTierActionLoading(record.id)"
+                    :loading="isMachineActionLoading(record.id)"
                   >
-                    ZeroTier
+                    更多
                     <DownOutlined />
                   </a-button>
                   <template #overlay>
-                    <a-menu @click="handleZeroTierMenuClick(record, $event)">
-                      <a-menu-item key="check">检查</a-menu-item>
+                    <a-menu @click="handleMoreMenuClick(record, $event)">
+                      <a-menu-item key="ssh">测试 SSH</a-menu-item>
+                      <a-menu-item key="zt-check">ZeroTier 检查</a-menu-item>
                       <a-menu-item
-                        key="start"
+                        key="zt-start"
                         :disabled="record.zerotierServiceStatus !== 'stopped'"
                       >
-                        开启
+                        ZeroTier 开启
                       </a-menu-item>
                       <a-menu-item
-                        key="stop"
+                        key="zt-stop"
                         :disabled="record.zerotierServiceStatus !== 'running'"
                       >
-                        关闭
+                        ZeroTier 关闭
                       </a-menu-item>
+                      <a-menu-item key="logs">查看日志</a-menu-item>
                     </a-menu>
                   </template>
                 </a-dropdown>
-                <a-button size="small" @click="openLogsModal(record)">查看日志</a-button>
-                <a-button danger size="small" @click="handleDelete(record.id)">删除</a-button>
               </template>
             </a-space>
           </template>
@@ -241,10 +244,10 @@
               <div class="cell-subtext">{{ record.targetNetworkId }}</div>
             </template>
             <template v-else-if="column.key === 'startedAt'">
-              {{ formatDate(record.startedAt) }}
+              {{ formatDateTime(record.startedAt) }}
             </template>
             <template v-else-if="column.key === 'finishedAt'">
-              {{ formatDate(record.finishedAt) }}
+              {{ formatDateTime(record.finishedAt) }}
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-button size="small" @click="selectedLog = record">查看详情</a-button>
@@ -283,6 +286,7 @@ import {
 } from '../../api/test-machines';
 import { useAuthStore } from '../../stores/auth';
 import { useNetworkVisibilityStore } from '../../stores/network-visibility';
+import { formatDateTime } from '../../utils/format';
 import type { ControllerItem } from '../../types/controller';
 import type { NetworkItem } from '../../types/network';
 import type {
@@ -328,16 +332,95 @@ const switchForm = reactive({
   networkId: undefined as string | undefined,
 });
 
+function machineStatusRank(status: TestMachineItem['status']) {
+  if (status === 'online') {
+    return 0;
+  }
+  if (status === 'offline') {
+    return 1;
+  }
+  return 2;
+}
+
+function zerotierStatusRank(status: TestMachineItem['zerotierServiceStatus']) {
+  if (status === 'running') {
+    return 0;
+  }
+  if (status === 'stopped') {
+    return 1;
+  }
+  if (status === 'not_installed') {
+    return 2;
+  }
+  return 3;
+}
+
+function switchStatusRank(status: TestMachineItem['switchStatus']) {
+  if (status === 'success') {
+    return 0;
+  }
+  if (status === 'failed') {
+    return 1;
+  }
+  if (status === 'running') {
+    return 2;
+  }
+  return 3;
+}
+
+function formatDateValue(value: string | null) {
+  return new Date(value || 0).getTime();
+}
+
+const tablePagination = {
+  defaultPageSize: 10,
+  pageSizeOptions: ['10', '20', '50'],
+  showSizeChanger: true,
+  showTotal: (total: number) => `共 ${total} 条`,
+};
+
 const columns = computed(() => {
   const baseColumns = [
-    { dataIndex: 'name', key: 'name', title: '测试机' },
+    {
+      dataIndex: 'name',
+      key: 'name',
+      title: '测试机',
+      sorter: (a: TestMachineItem, b: TestMachineItem) => a.name.localeCompare(b.name, 'zh'),
+    },
     { dataIndex: 'host', key: 'host', title: '管理地址' },
     { key: 'currentNetwork', title: '当前测试网络' },
-    { key: 'status', title: '主机状态' },
-    { key: 'zerotierServiceStatus', title: 'ZeroTier 服务' },
-    { key: 'switchStatus', title: '最近切换结果' },
-    { dataIndex: 'lastCheckedAt', key: 'lastCheckedAt', title: '最近 SSH 检测' },
-    { dataIndex: 'lastSwitchAt', key: 'lastSwitchAt', title: '最近切换时间' },
+    {
+      key: 'status',
+      title: '主机状态',
+      sorter: (a: TestMachineItem, b: TestMachineItem) =>
+        machineStatusRank(a.status) - machineStatusRank(b.status),
+    },
+    {
+      key: 'zerotierServiceStatus',
+      title: 'ZeroTier 服务',
+      sorter: (a: TestMachineItem, b: TestMachineItem) =>
+        zerotierStatusRank(a.zerotierServiceStatus) - zerotierStatusRank(b.zerotierServiceStatus),
+    },
+    {
+      key: 'switchStatus',
+      title: '最近切换结果',
+      sorter: (a: TestMachineItem, b: TestMachineItem) =>
+        switchStatusRank(a.switchStatus) - switchStatusRank(b.switchStatus),
+    },
+    {
+      dataIndex: 'lastCheckedAt',
+      key: 'lastCheckedAt',
+      title: '最近 SSH 检测',
+      sorter: (a: TestMachineItem, b: TestMachineItem) =>
+        formatDateValue(a.lastCheckedAt) - formatDateValue(b.lastCheckedAt),
+    },
+    {
+      dataIndex: 'lastSwitchAt',
+      key: 'lastSwitchAt',
+      title: '最近切换时间',
+      sorter: (a: TestMachineItem, b: TestMachineItem) =>
+        formatDateValue(a.lastSwitchAt) - formatDateValue(b.lastSwitchAt),
+    },
     { dataIndex: 'remark', key: 'remark', title: '备注' },
     { key: 'actions', title: '操作' },
   ];
@@ -377,10 +460,6 @@ const switchNetworkOptions = computed(() =>
 const selectedController = computed(() =>
   controllers.value.find((controller) => controller.id === switchForm.controllerId) ?? null,
 );
-
-function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleString() : '-';
-}
 
 function machineStatusColor(status: TestMachineItem['status']) {
   if (status === 'online') {
@@ -428,8 +507,12 @@ function zerotierStatusText(status: TestMachineItem['zerotierServiceStatus']) {
   return '未知';
 }
 
-function isZeroTierActionLoading(id: number) {
-  return zerotierCheckingId.value === id || zerotierActionId.value === id;
+function isMachineActionLoading(id: number) {
+  return (
+    sshTestingId.value === id ||
+    zerotierCheckingId.value === id ||
+    zerotierActionId.value === id
+  );
 }
 
 function switchStatusColor(status: TestMachineItem['switchStatus']) {
@@ -673,17 +756,28 @@ async function handleToggleZeroTier(record: TestMachineItem, action: 'start' | '
   }
 }
 
-function handleZeroTierMenuClick(
+function handleMoreMenuClick(
   record: TestMachineItem,
-  event: { key: 'check' | 'start' | 'stop' | string },
+  event: { key: string | number },
 ) {
-  if (event.key === 'check') {
+  const key = String(event.key);
+  if (key === 'ssh') {
+    void handleTestSsh(record);
+    return;
+  }
+
+  if (key === 'zt-check') {
     void handleCheckZeroTier(record);
     return;
   }
 
-  if (event.key === 'start' || event.key === 'stop') {
-    void handleToggleZeroTier(record, event.key);
+  if (key === 'zt-start' || key === 'zt-stop') {
+    void handleToggleZeroTier(record, key === 'zt-start' ? 'start' : 'stop');
+    return;
+  }
+
+  if (key === 'logs') {
+    void openLogsModal(record);
   }
 }
 

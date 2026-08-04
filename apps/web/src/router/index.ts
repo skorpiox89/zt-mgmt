@@ -16,6 +16,7 @@ const router = createRouter({
       component: LoginView,
       meta: {
         public: true,
+        title: '登录',
       },
     },
     {
@@ -29,30 +30,48 @@ const router = createRouter({
         {
           path: 'controllers',
           component: ControllersView,
+          meta: {
+            title: '控制器管理',
+          },
         },
         {
           path: 'networks',
           component: NetworksView,
+          meta: {
+            title: '网络管理',
+          },
         },
         {
           path: 'networks/:controllerId/:networkId',
           component: NetworkDetailView,
           props: true,
+          meta: {
+            title: '网络详情',
+          },
         },
         {
           path: 'test-machines',
           component: TestMachinesView,
+          meta: {
+            title: '网络测试',
+          },
         },
         {
           path: 'users',
           component: UsersView,
           meta: {
             adminOnly: true,
+            title: '用户管理',
           },
         },
       ],
     },
   ],
+});
+
+router.afterEach((to) => {
+  const title = to.meta.title as string | undefined;
+  document.title = title ? `${title} - ZT MGMT` : 'ZT MGMT';
 });
 
 router.beforeEach((to) => {
