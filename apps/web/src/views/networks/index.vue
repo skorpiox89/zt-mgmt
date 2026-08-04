@@ -14,20 +14,21 @@
         </a-space>
       </div>
 
-      <a-form layout="inline" style="margin-bottom: 20px">
+      <a-form layout="inline" style="margin-bottom: 20px" @finish="loadData">
         <a-form-item label="控制器">
           <a-select
             v-model:value="filters.controllerId"
             :allow-clear="true"
             :options="controllerOptions"
             style="width: 220px"
+            @change="loadData"
           />
         </a-form-item>
         <a-form-item label="关键词">
           <a-input v-model:value="filters.keyword" placeholder="搜索网络名称" style="width: 220px" />
         </a-form-item>
         <a-form-item>
-          <a-button type="primary" @click="loadData">搜索</a-button>
+          <a-button html-type="submit" type="primary">搜索</a-button>
         </a-form-item>
       </a-form>
 

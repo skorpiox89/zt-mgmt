@@ -566,7 +566,6 @@ async function handleLoadSwitchNetworks(controllerId: number | undefined) {
       controllerId,
     });
     switchNetworks.value = visibilityStore.filterNetworks(result.items);
-    switchForm.networkId = switchNetworks.value[0]?.networkId;
   } catch (error) {
     message.error(error instanceof Error ? error.message : '加载目标网络失败');
   }

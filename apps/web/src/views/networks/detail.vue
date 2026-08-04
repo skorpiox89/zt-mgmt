@@ -46,6 +46,8 @@
               <template v-if="column.key === 'authorized'">
                 <a-switch
                   :checked="record.authorized"
+                  :disabled="authUpdatingId !== ''"
+                  :loading="authUpdatingId === record.memberId"
                   checked-children="开"
                   un-checked-children="关"
                   @change="(checked: boolean) => handleToggleAuth(record.memberId, checked)"
@@ -116,6 +118,7 @@ const RENAME_CONFIRM_INTERVAL_MS = 800;
 
 const loading = ref(false);
 const saving = ref(false);
+const authUpdatingId = ref('');
 const renameOpen = ref(false);
 const renameConfirmAttempt = ref(0);
 const renamePhase = ref<'confirming' | 'idle' | 'submitting'>('idle');
@@ -197,12 +200,23 @@ async function loadData() {
 }
 
 async function handleToggleAuth(memberId: string, checked: boolean) {
+  if (authUpdatingId.value !== '') {
+    return;
+  }
+
+  authUpdatingId.value = memberId;
   try {
     await updateMemberAuth(controllerId, networkId, memberId, checked);
     message.success('成员授权状态已更新');
-    await loadData();
+    const member = members.value.find((item) => item.memberId === memberId);
+    if (member) {
+      member.authorized = checked;
+    }
   } catch (error) {
     message.error(error instanceof Error ? error.message : '更新成员授权状态失败');
+    await loadData();
+  } finally {
+    authUpdatingId.value = '';
   }
 }
 

@@ -112,28 +112,28 @@
       v-model:open="modalOpen"
       :confirm-loading="saving"
       :title="editingId ? '编辑控制器' : '新增控制器'"
-      @ok="handleSave"
+      @ok="submitForm"
     >
-      <a-form layout="vertical">
-        <a-form-item label="名称">
+      <a-form ref="formRef" :model="form" :rules="formRules" layout="vertical" @finish="submitForm">
+        <a-form-item label="名称" name="name">
           <a-input v-model:value="form.name" />
         </a-form-item>
-        <a-form-item label="区域">
+        <a-form-item label="区域" name="region">
           <a-input v-model:value="form.region" />
         </a-form-item>
-        <a-form-item label="控制器地址">
+        <a-form-item label="控制器地址" name="baseUrl">
           <a-input v-model:value="form.baseUrl" placeholder="http://127.0.0.1:30980" />
         </a-form-item>
-        <a-form-item label="用户名">
+        <a-form-item label="用户名" name="username">
           <a-input v-model:value="form.username" />
         </a-form-item>
-        <a-form-item label="密码">
+        <a-form-item label="密码" name="password">
           <a-input-password v-model:value="form.password" />
         </a-form-item>
-        <a-form-item label="子网池 CIDR">
+        <a-form-item label="子网池 CIDR" name="subnetPoolCidr">
           <a-input v-model:value="form.subnetPoolCidr" placeholder="10.10.0.0/16" />
         </a-form-item>
-        <a-form-item label="子网前缀">
+        <a-form-item label="子网前缀" name="subnetPrefix">
           <a-input-number v-model:value="form.subnetPrefix" :max="30" :min="1" style="width: 100%" />
         </a-form-item>
       </a-form>
@@ -238,8 +238,9 @@ import {
   ImportOutlined,
   LinkOutlined,
 } from '@ant-design/icons-vue';
-import { Modal, message } from 'ant-design-vue';
-import { onMounted, reactive, ref } from 'vue';
+import { Modal, message, type FormInstance } from 'ant-design-vue';
+import type { Rule } from 'ant-design-vue/es/form';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import {
   createController,
   deleteControllerPlanet,
@@ -271,6 +272,7 @@ const exportModalOpen = ref(false);
 const importModalOpen = ref(false);
 const planetLinkModalOpen = ref(false);
 const editingId = ref<number | null>(null);
+const formRef = ref<FormInstance>();
 const controllers = ref<ControllerItem[]>([]);
 const planetInput = ref<HTMLInputElement | null>(null);
 const controllerImportInput = ref<HTMLInputElement | null>(null);
@@ -295,6 +297,24 @@ const exportForm = reactive({
   confirmMigrationPassword: '',
   migrationPassword: '',
 });
+
+const formRules = computed<Record<string, Rule[]>>(() => ({
+  name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
+  baseUrl: [
+    { required: true, message: '请输入控制器地址', trigger: 'blur' },
+    {
+      message: '地址需以 http:// 或 https:// 开头',
+      pattern: /^https?:\/\/.+/,
+      trigger: 'blur',
+    },
+  ],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: editingId.value
+    ? []
+    : [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  subnetPoolCidr: [{ required: true, message: '请输入子网池 CIDR', trigger: 'blur' }],
+  subnetPrefix: [{ required: true, message: '请输入子网前缀', trigger: 'change' }],
+}));
 
 const columns = [
   { dataIndex: 'name', key: 'name', title: '名称' },
@@ -321,6 +341,7 @@ function openCreateModal() {
   editingId.value = null;
   resetForm();
   modalOpen.value = true;
+  void nextTick(() => formRef.value?.clearValidate());
 }
 
 function openExportModal() {
@@ -366,6 +387,7 @@ function openEditModal(record: ControllerItem) {
   form.subnetPrefix = record.subnetPrefix;
   form.username = record.username;
   modalOpen.value = true;
+  void nextTick(() => formRef.value?.clearValidate());
 }
 
 function statusColor(status: ControllerItem['status']) {
@@ -717,6 +739,15 @@ async function loadControllers() {
   } finally {
     loading.value = false;
   }
+}
+
+async function submitForm() {
+  try {
+    await formRef.value?.validate();
+  } catch {
+    return;
+  }
+  await handleSave();
 }
 
 async function handleSave() {
