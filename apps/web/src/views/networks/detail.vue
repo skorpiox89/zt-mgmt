@@ -48,8 +48,17 @@
         </a-descriptions>
 
         <div>
-          <h2 class="section-title">成员列表</h2>
-          <a-table :columns="columns" :data-source="members" :loading="loading" row-key="memberId" :scroll="{ x: 900 }">
+          <div class="section-head">
+            <h2 class="section-title">成员列表</h2>
+            <a-space :size="16">
+              <span class="member-stat">在线 {{ onlineCount }} / 共 {{ members.length }}</span>
+              <a-checkbox v-model:checked="onlyOnline">仅显示在线</a-checkbox>
+            </a-space>
+          </div>
+          <a-table :columns="columns" :data-source="visibleMembers" :loading="loading" row-key="memberId" :scroll="{ x: 900 }">
+            <template #emptyText>
+              {{ onlyOnline && members.length > 0 ? '当前没有在线成员' : '暂无数据' }}
+            </template>
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'authorized'">
                 <a-switch
@@ -134,6 +143,13 @@ const renameMemberId = ref('');
 const renameValue = ref('');
 const detail = ref<NetworkDetail | null>(null);
 const members = ref<MemberItem[]>([]);
+const onlyOnline = ref(true);
+
+const visibleMembers = computed(() =>
+  onlyOnline.value ? members.value.filter((item) => item.online) : members.value,
+);
+
+const onlineCount = computed(() => members.value.filter((item) => item.online).length);
 
 const columns = [
   { dataIndex: 'memberName', key: 'memberName', title: '成员名称' },
@@ -332,11 +348,23 @@ onMounted(() => {
   align-items: flex-start;
 }
 
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .section-title {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.member-stat {
+  color: #64748b;
+  font-size: 13px;
 }
 
 .rename-status {
