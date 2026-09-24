@@ -1,0 +1,9 @@
+# 统一行尾：仓库与所有平台的工作区都使用 LF，避免 Windows/Linux 之间
+# 因 CRLF 与 LF 差异导致 git status 大量“已修改”。
+# 说明：Git 读取本文件后，比较/暂存时会自动把 CRLF 规范化成 LF，
+# 检出时也会按这里的规则写回 LF，因此无需再依赖各机器的 core.autocrlf。
+* text=auto eol=lf
+
+# Windows 专用脚本需要 CRLF（批处理必须 CRLF，否则可能执行异常）
+*.bat text eol=crlf
+*.cmd text eol=crlf
